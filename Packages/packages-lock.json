@@ -1,5 +1,6 @@
 {
   "dependencies": {
+<<<<<<< Updated upstream
     "com.unity.ai.navigation": {
       "version": "2.0.14",
       "depth": 0,
@@ -33,18 +34,23 @@
         "com.unity.test-framework.performance": "3.2.0"
       }
     },
+=======
+>>>>>>> Stashed changes
     "com.unity.ext.nunit": {
       "version": "2.1.0",
       "depth": 1,
       "source": "builtin",
       "dependencies": {}
     },
+<<<<<<< Updated upstream
     "com.unity.graph-authoring": {
       "version": "1.0.0",
       "depth": 2,
       "source": "builtin",
       "dependencies": {}
     },
+=======
+>>>>>>> Stashed changes
     "com.unity.ide.rider": {
       "version": "3.0.38",
       "depth": 0,
@@ -63,6 +69,7 @@
       },
       "url": "https://packages.unity.com"
     },
+<<<<<<< Updated upstream
     "com.unity.inputsystem": {
       "version": "1.20.0",
       "depth": 0,
@@ -135,6 +142,11 @@
     "com.unity.test-framework": {
       "version": "1.8.0",
       "depth": 0,
+=======
+    "com.unity.test-framework": {
+      "version": "1.8.0",
+      "depth": 1,
+>>>>>>> Stashed changes
       "source": "builtin",
       "dependencies": {
         "com.unity.ext.nunit": "2.1.0",
@@ -142,6 +154,7 @@
         "com.unity.modules.jsonserialize": "1.0.0"
       }
     },
+<<<<<<< Updated upstream
     "com.unity.test-framework.performance": {
       "version": "6.6.0",
       "depth": 3,
@@ -184,6 +197,8 @@
       },
       "url": "https://packages.unity.com"
     },
+=======
+>>>>>>> Stashed changes
     "com.unity.modules.accessibility": {
       "version": "1.0.0",
       "depth": 0,
