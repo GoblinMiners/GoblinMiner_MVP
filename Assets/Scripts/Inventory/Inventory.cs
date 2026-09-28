@@ -9,8 +9,9 @@ public class Inventory : MonoBehaviour
 	[SerializeField] private PlayerInventory playerInventory;
 	[SerializeField] private ItemSO oreItem;
 	[SerializeField] private ItemSO pickaxeItem;
-	[SerializeField] private GameObject hotbarObj;
-	[SerializeField] private GameObject inventorySlotParent;
+	[SerializeField] private SlotView slotPrefab;
+	[SerializeField] private Transform backpackSlotParent;
+	[SerializeField] private Transform hotbarSlotParent;
 	[SerializeField] private Image dragIcon;
 	[SerializeField] private TextMeshProUGUI dragAmountTxt;
 	[SerializeField] private InventoryWindow window;
@@ -35,15 +36,14 @@ public class Inventory : MonoBehaviour
 
 		container = playerInventory.Container;
 
-		inventoryViews.AddRange(inventorySlotParent.GetComponentsInChildren<SlotView>());
-		hotbarViews.AddRange(hotbarObj.GetComponentsInChildren<SlotView>());
+		for (int i = 0; i < playerInventory.BackpackSlotCount; i++)
+			inventoryViews.Add(Instantiate(slotPrefab, backpackSlotParent));
+
+		for (int i = 0; i < playerInventory.HotbarSlotCount; i++)
+			hotbarViews.Add(Instantiate(slotPrefab, hotbarSlotParent));
 
 		allViews.AddRange(inventoryViews);
 		allViews.AddRange(hotbarViews);
-
-		if (allViews.Count != container.SlotCount)
-			Debug.LogWarning("[Inventory] There are " + allViews.Count + " slot squares but the container has "
-				+ container.SlotCount + " slots. Check Slot Count on PlayerInventory.", this);
 
 		foreach (SlotView view in allViews)
 		{

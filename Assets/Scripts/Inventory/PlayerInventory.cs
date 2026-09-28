@@ -2,8 +2,14 @@ using UnityEngine;
 
 public class PlayerInventory : MonoBehaviour
 {
-	[Tooltip("Total slots, backpack + hotbar. For now this must match the number of slot squares on screen.")]
-	[SerializeField] private int slotCount = 8;
+	[Tooltip("Slots in the backpack. Bag upgrades will raise this.")]
+	[SerializeField] private int backpackSlotCount = 4;
+
+	[Tooltip("Slots in the hotbar. Fixed at 4 by design.")]
+	[SerializeField] private int hotbarSlotCount = 4;
+
+	public int BackpackSlotCount => backpackSlotCount;
+	public int HotbarSlotCount => hotbarSlotCount;
 
 	private InventoryContainer container;
 
@@ -12,7 +18,7 @@ public class PlayerInventory : MonoBehaviour
 		get
 		{
 			if (container == null)
-				container = new InventoryContainer(slotCount);
+				container = new InventoryContainer(backpackSlotCount + hotbarSlotCount);
 
 			return container;
 		}
