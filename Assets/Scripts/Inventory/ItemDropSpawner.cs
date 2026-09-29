@@ -19,14 +19,14 @@ public class ItemDropSpawner : MonoBehaviour
 			Debug.LogError("[ItemDropSpawner] Player Inventory is not assigned.", this);
 			return;
 		}
-
-		playerInventory.Container.ItemsDropped += OnItemsDropped;
+		
+		playerInventory.ItemsDropped += OnItemsDropped;
 	}
 
 	private void OnDisable()
 	{
 		if (playerInventory != null)
-			playerInventory.Container.ItemsDropped -= OnItemsDropped;
+			playerInventory.ItemsDropped -= OnItemsDropped;
 	}
 
 	private void OnItemsDropped(ItemSO item, int count)

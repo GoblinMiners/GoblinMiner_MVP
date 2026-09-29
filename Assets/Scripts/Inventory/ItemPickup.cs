@@ -17,7 +17,7 @@ public class ItemPickup : MonoBehaviour
 		WorldItem worldItem = other.GetComponent<WorldItem>();
 		if (worldItem == null) return;
 
-		int leftover = playerInventory.Container.AddItem(worldItem.Item, worldItem.Count);
+		int leftover = playerInventory.AddItem(worldItem.Item, worldItem.Count);
 		int taken = worldItem.Count - leftover;
 
 		if (taken > 0)

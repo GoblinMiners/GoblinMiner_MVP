@@ -2,41 +2,53 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-// The contents of one inventory: a player's bag now, a storage box later.
-// It keeps the slots, applies the rules, and announces what changed.
-// It knows nothing about screens, icons, or the mouse.
 public class InventoryContainer
 {
 	private readonly List<InventorySlot> slots = new List<InventorySlot>();
-
-	// Announced when a slot's contents change. Sends that slot's index.
 	public event Action<int> SlotChanged;
-
-	// Announced when items leave this inventory into the world.
 	public event Action<ItemSO, int> ItemsDropped;
-
 	public int SlotCount => slots.Count;
+	private readonly ItemType[] allowedTypes;
 
-	public InventoryContainer(int slotCount)
+	public InventoryContainer(int slotCount, params ItemType[] allowedTypes)
 	{
+		this.allowedTypes = allowedTypes;
+
 		for (int i = 0; i < slotCount; i++)
 			slots.Add(new InventorySlot());
 	}
 
-	// Read-only access. Other scripts can look at a slot,
-	// but only this class can change one, so every change gets announced.
+	public bool Accepts(ItemSO item)
+	{
+		if (item == null) return false;
+		if (allowedTypes == null || allowedTypes.Length == 0) return true;
+
+		foreach (ItemType type in allowedTypes)
+		{
+			if (item.itemType == type)
+				return true;
+		}
+
+		return false;
+	}
+
 	public ItemSO GetItem(int index) => IsValidIndex(index) ? slots[index].Item : null;
 	public int GetCount(int index) => IsValidIndex(index) ? slots[index].Count : 0;
 
-	// Returns how many didn't fit.
+
 	public int AddItem(ItemSO itemToAdd, int amount)
 	{
-		if (itemToAdd == null) return amount;
+		int remaining = TopUpStacks(itemToAdd, amount);
+		return FillEmptySlots(itemToAdd, remaining);
+	}
+
+	public int TopUpStacks(ItemSO itemToAdd, int amount)
+	{
 		if (amount <= 0) return 0;
+		if (!Accepts(itemToAdd)) return amount;
 
 		int remaining = amount;
 
-		// First pass: top up stacks of the same item.
 		for (int i = 0; i < slots.Count && remaining > 0; i++)
 		{
 			if (slots[i].Item == itemToAdd)
@@ -49,7 +61,16 @@ public class InventoryContainer
 			}
 		}
 
-		// Second pass: start new stacks in empty slots.
+		return remaining;
+	}
+
+	public int FillEmptySlots(ItemSO itemToAdd, int amount)
+	{
+		if (amount <= 0) return 0;
+		if (!Accepts(itemToAdd)) return amount;
+
+		int remaining = amount;
+
 		for (int i = 0; i < slots.Count && remaining > 0; i++)
 		{
 			if (slots[i].IsEmpty)
@@ -61,58 +82,58 @@ public class InventoryContainer
 			}
 		}
 
-		if (remaining > 0)
-			Debug.Log("Inventory full, could not add " + remaining + " " + itemToAdd.itemName);
-
 		return remaining;
 	}
 
 	public void MoveOrSwap(int fromIndex, int toIndex, int amount)
 	{
-		if (!IsValidIndex(fromIndex) || !IsValidIndex(toIndex)) return;
-		if (fromIndex == toIndex || amount <= 0) return;
+		MoveBetween(this, fromIndex, this, toIndex, amount);
+	}
+	public static void MoveBetween(InventoryContainer from, int fromIndex,
+		InventoryContainer to, int toIndex, int amount)
+	{
+		if (from == null || to == null) return;
+		if (!from.IsValidIndex(fromIndex) || !to.IsValidIndex(toIndex)) return;
+		if (from == to && fromIndex == toIndex) return;
+		if (amount <= 0) return;
 
-		InventorySlot from = slots[fromIndex];
-		InventorySlot to = slots[toIndex];
+		InventorySlot fromSlot = from.slots[fromIndex];
+		InventorySlot toSlot = to.slots[toIndex];
 
-		if (from.IsEmpty) return;
+		if (fromSlot.IsEmpty) return;
 
-		amount = Mathf.Min(amount, from.Count);
-		bool wholeStack = amount == from.Count;
+		if (!to.Accepts(fromSlot.Item)) return;
 
-		if (to.Item == from.Item)
+		amount = Mathf.Min(amount, fromSlot.Count);
+		bool wholeStack = amount == fromSlot.Count;
+
+		if (toSlot.Item == fromSlot.Item)
 		{
-			// Same item: merge as much as fits.
-			int leftover = to.AddAmount(amount);
-			from.RemoveAmount(amount - leftover);
+			int leftover = toSlot.AddAmount(amount);
+			fromSlot.RemoveAmount(amount - leftover);
 		}
-		else if (to.IsEmpty)
+		else if (toSlot.IsEmpty)
 		{
-			// Empty target: move.
-			to.SetItem(from.Item, amount);
-			from.RemoveAmount(amount);
+			toSlot.SetItem(fromSlot.Item, amount);
+			fromSlot.RemoveAmount(amount);
 		}
-		else if (wholeStack)
+		else if (wholeStack && from.Accepts(toSlot.Item))
 		{
-			// Different item, whole stack: swap.
-			ItemSO tempItem = to.Item;
-			int tempCount = to.Count;
+			ItemSO tempItem = toSlot.Item;
+			int tempCount = toSlot.Count;
 
-			to.SetItem(from.Item, from.Count);
-			from.SetItem(tempItem, tempCount);
+			toSlot.SetItem(fromSlot.Item, fromSlot.Count);
+			fromSlot.SetItem(tempItem, tempCount);
 		}
 		else
 		{
-			// Part of a stack onto a different item: do nothing.
 			return;
 		}
 
-		SlotChanged?.Invoke(fromIndex);
-		SlotChanged?.Invoke(toIndex);
+		from.SlotChanged?.Invoke(fromIndex);
+		to.SlotChanged?.Invoke(toIndex);
 	}
 
-	// Takes items out of a slot and announces that they left the inventory.
-	// Returns how many actually came out.
 	public int DropFromSlot(int index, int amount)
 	{
 		if (!IsValidIndex(index) || amount <= 0) return 0;

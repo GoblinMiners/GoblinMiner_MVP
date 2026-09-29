@@ -960,6 +960,7 @@ GameObject:
   - component: {fileID: 1015796110}
   - component: {fileID: 1015796109}
   - component: {fileID: 1015796111}
+  - component: {fileID: 1015796112}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -1078,8 +1079,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 985093e7b377adf4189760736278cfef, type: 3}
   m_Name: 
   m_EditorClassIdentifier: GoblinMiner.Inventory::PlayerInventory
-  backpackSlotCount: 4
+  bagSlotCount: 4
   hotbarSlotCount: 4
+--- !u!114 &1015796112
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1015796105}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8dcff5d7d0bfbdd41bf9ebad1325fa37, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GoblinMiner.Inventory::TESTInventoryKeys
+  oreItem: {fileID: 11400000, guid: 9e115583a1c659f48921edc847abae1c, type: 2}
+  consumableItem: {fileID: 11400000, guid: e04dc2404570db1459b361a6fb69c8c3, type: 2}
+  supportItem: {fileID: 11400000, guid: c3e82c7134f4a9d43907ea22943f681c, type: 2}
 --- !u!1 &1461082402
 GameObject:
   m_ObjectHideFlags: 0
@@ -1134,10 +1150,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Inventory
   playerInventory: {fileID: 1015796111}
-  oreItem: {fileID: 11400000, guid: 9e115583a1c659f48921edc847abae1c, type: 2}
-  pickaxeItem: {fileID: 11400000, guid: 73b185fd10aba9f41ace1395d97b4b30, type: 2}
   slotPrefab: {fileID: 4082070969778939972, guid: 16c80a118a5a98d4b9ee0a4fa6446bce, type: 3}
-  backpackSlotParent: {fileID: 257037402}
+  bagSlotParent: {fileID: 257037402}
   hotbarSlotParent: {fileID: 672851220}
   dragIcon: {fileID: 483247592}
   dragAmountTxt: {fileID: 240240570}

@@ -13,10 +13,12 @@ public class InventoryContainerTests
 		ore = ScriptableObject.CreateInstance<ItemSO>();
 		ore.itemName = "Test Ore";
 		ore.maxStackSize = 5;
+		ore.itemType = ItemType.Resource;
 
 		rope = ScriptableObject.CreateInstance<ItemSO>();
 		rope.itemName = "Test Rope";
 		rope.maxStackSize = 5;
+		rope.itemType = ItemType.Consumable;
 	}
 
 	[TearDown]
@@ -73,5 +75,46 @@ public class InventoryContainerTests
 		Assert.AreEqual(rope, container.GetItem(1));
 		Assert.AreEqual(2, container.GetCount(1));
 		Assert.AreEqual(0, announcements);
+	}
+
+	[Test]
+	public void AddItem_TypeNotAllowed_AddsNothing()
+	{
+		var hotbar = new InventoryContainer(4, ItemType.Consumable, ItemType.Support);
+
+		int leftover = hotbar.AddItem(ore, 3);
+
+		Assert.AreEqual(3, leftover);
+		Assert.IsNull(hotbar.GetItem(0));
+	}
+
+	[Test]
+	public void MoveBetween_ConsumableIntoHotbar_Moves()
+	{
+		var backpack = new InventoryContainer(2);
+		var hotbar = new InventoryContainer(2, ItemType.Consumable, ItemType.Support);
+		backpack.AddItem(rope, 3);
+
+		InventoryContainer.MoveBetween(backpack, 0, hotbar, 0, 3);
+
+		Assert.IsNull(backpack.GetItem(0));
+		Assert.AreEqual(rope, hotbar.GetItem(0));
+		Assert.AreEqual(3, hotbar.GetCount(0));
+	}
+
+	[Test]
+	public void MoveBetween_SwapWouldPutOreInHotbar_ChangesNothing()
+	{
+		var backpack = new InventoryContainer(2);
+		var hotbar = new InventoryContainer(2, ItemType.Consumable, ItemType.Support);
+		backpack.AddItem(ore, 4);   
+		hotbar.AddItem(rope, 2);    
+
+		InventoryContainer.MoveBetween(hotbar, 0, backpack, 0, 2);
+
+		Assert.AreEqual(rope, hotbar.GetItem(0));
+		Assert.AreEqual(2, hotbar.GetCount(0));
+		Assert.AreEqual(ore, backpack.GetItem(0));
+		Assert.AreEqual(4, backpack.GetCount(0));
 	}
 }
