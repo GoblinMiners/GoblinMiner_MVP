@@ -18,3 +18,5 @@ MonoBehaviour:
   maxStackSize: 50
   itemPrefab: {fileID: 922398200625846112, guid: 2132cf8a5297b174284ec22e59a3db2b, type: 3}
   handItemPrefab: {fileID: 0}
+  baseSellValue: 3
+  description: 'Some Rock? '

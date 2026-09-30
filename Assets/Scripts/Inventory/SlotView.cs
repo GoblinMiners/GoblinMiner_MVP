@@ -4,7 +4,7 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using TMPro;
 
-public class SlotView : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler
+public class SlotView : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler, IPointerEnterHandler, IPointerExitHandler
 {
 	[SerializeField] private Image iconImage;
 	[SerializeField] private TextMeshProUGUI amountTxt;
@@ -13,6 +13,8 @@ public class SlotView : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 	public event Action<Vector2> Dragged;
 	public event Action<SlotView> DragEnded;
 	public event Action<SlotView> DroppedOn;
+	public event Action<SlotView> HoverStarted;
+	public event Action<SlotView> HoverEnded;
 
 	public void Refresh(ItemSO item, int count)
 	{
@@ -32,4 +34,6 @@ public class SlotView : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDrag
 	public void OnDrag(PointerEventData eventData) => Dragged?.Invoke(eventData.position);
 	public void OnEndDrag(PointerEventData eventData) => DragEnded?.Invoke(this);
 	public void OnDrop(PointerEventData eventData) => DroppedOn?.Invoke(this);
+	public void OnPointerEnter(PointerEventData eventData) => HoverStarted?.Invoke(this);
+	public void OnPointerExit(PointerEventData eventData) => HoverEnded?.Invoke(this);
 }

@@ -18,3 +18,5 @@ MonoBehaviour:
   maxStackSize: 10
   itemPrefab: {fileID: 922398200625846112, guid: ed1c4032dc3d50c4fac8a6369cbb946d, type: 3}
   handItemPrefab: {fileID: 0}
+  baseSellValue: 8
+  description: mysterious liquid used to test

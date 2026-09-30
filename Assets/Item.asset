@@ -13,7 +13,10 @@ MonoBehaviour:
   m_Name: Item
   m_EditorClassIdentifier: Assembly-CSharp::ItemSO
   itemName: 
+  itemType: 1
   icon: {fileID: 0}
   maxStackSize: 0
   itemPrefab: {fileID: 0}
   handItemPrefab: {fileID: 0}
+  baseSellValue: 1
+  description: A mysterious amorphus thing

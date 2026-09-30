@@ -13,6 +13,7 @@ public class InventoryView : MonoBehaviour
 	[SerializeField] private Image dragIcon;
 	[SerializeField] private TextMeshProUGUI dragAmountTxt;
 	[SerializeField] private InventoryWindow window;
+	[SerializeField] private TooltipView tooltip;
 
 	private List<SlotView> inventoryViews = new List<SlotView>();
 	private List<SlotView> hotbarViews = new List<SlotView>();
@@ -50,10 +51,15 @@ public class InventoryView : MonoBehaviour
 			view.Dragged += OnSlotDragged;
 			view.DragEnded += OnSlotDragEnded;
 			view.DroppedOn += OnSlotDroppedOn;
+			view.HoverStarted += OnSlotHoverStarted;
+			view.HoverEnded += OnSlotHoverEnded;
 		}
 
 		bag.SlotChanged += OnBagSlotChanged;
 		hotbar.SlotChanged += OnHotbarSlotChanged;
+
+		if (window != null)
+			window.OpenStateChanged += OnWindowOpenStateChanged;
 
 		dragIcon.raycastTarget = false;
 		dragIcon.gameObject.SetActive(false);
@@ -69,6 +75,8 @@ public class InventoryView : MonoBehaviour
 			view.Dragged -= OnSlotDragged;
 			view.DragEnded -= OnSlotDragEnded;
 			view.DroppedOn -= OnSlotDroppedOn;
+			view.HoverStarted -= OnSlotHoverStarted;
+			view.HoverEnded -= OnSlotHoverEnded;
 		}
 
 		if (bag != null)
@@ -76,6 +84,9 @@ public class InventoryView : MonoBehaviour
 
 		if (hotbar != null)
 			hotbar.SlotChanged -= OnHotbarSlotChanged;
+
+		if (window != null)
+			window.OpenStateChanged -= OnWindowOpenStateChanged;
 	}
 
 	private void OnBagSlotChanged(int index)
@@ -140,6 +151,9 @@ public class InventoryView : MonoBehaviour
 		dragIcon.sprite = item.icon;
 		dragAmountTxt.text = dragAmount.ToString();
 		dragIcon.gameObject.SetActive(true);
+
+		if (tooltip != null)
+			tooltip.Hide();
 	}
 
 	private void OnSlotDragged(Vector2 screenPosition)
@@ -153,11 +167,16 @@ public class InventoryView : MonoBehaviour
 		if (dragFromContainer != null && !window.IsPointerOverPanel())
 			dragFromContainer.DropFromSlot(dragFromIndex, dragAmount);
 
+		CancelDrag();
+	}
+	private void CancelDrag()
+	{
 		dragFromContainer = null;
 		dragFromIndex = -1;
 		dragAmount = 0;
 		dragIcon.gameObject.SetActive(false);
 	}
+
 
 	private void OnSlotDroppedOn(SlotView view)
 	{
@@ -165,5 +184,32 @@ public class InventoryView : MonoBehaviour
 
 		InventoryContainer.MoveBetween(dragFromContainer, dragFromIndex,
 			ContainerOf(view), IndexOf(view), dragAmount);
+	}
+
+	private void OnSlotHoverStarted(SlotView view)
+	{
+		if (tooltip == null) return;
+		if (dragFromContainer != null) return; 
+
+		InventoryContainer container = ContainerOf(view);
+		if (container == null) return;
+		
+		tooltip.Show(container.GetItem(IndexOf(view)));
+	}
+
+	private void OnSlotHoverEnded(SlotView view)
+	{
+		if (tooltip != null)
+			tooltip.Hide();
+	}
+
+	private void OnWindowOpenStateChanged(bool isOpen)
+	{
+		if (isOpen) return;
+
+		if (!isOpen && tooltip != null)
+			tooltip.Hide();
+
+		CancelDrag();
 	}
 }
