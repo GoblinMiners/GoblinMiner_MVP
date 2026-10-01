@@ -77,6 +77,11 @@ public class PlayerInventory : MonoBehaviour
 		return Hotbar.TakeFromSlot(index, amount);
 	}
 
+	public void SortBag(SortOrder order)
+	{
+		Bag.Sort(order);
+	}
+
 	private void RelayItemsDropped(ItemSO item, int count)
 	{
 		ItemsDropped?.Invoke(item, count);

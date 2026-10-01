@@ -17,6 +17,6 @@ MonoBehaviour:
   icon: {fileID: 4656004233995704663, guid: dc992f72c39afea4c8fa3ef440361c98, type: 3}
   maxStackSize: 10
   itemPrefab: {fileID: 922398200625846112, guid: ed1c4032dc3d50c4fac8a6369cbb946d, type: 3}
-  handItemPrefab: {fileID: 0}
+  itemWeight: 2
   baseSellValue: 8
   description: mysterious liquid used to test

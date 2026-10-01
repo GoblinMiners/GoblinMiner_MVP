@@ -1364,6 +1364,7 @@ MonoBehaviour:
   oreItem: {fileID: 11400000, guid: 9e115583a1c659f48921edc847abae1c, type: 2}
   consumableItem: {fileID: 11400000, guid: e04dc2404570db1459b361a6fb69c8c3, type: 2}
   supportItem: {fileID: 11400000, guid: c3e82c7134f4a9d43907ea22943f681c, type: 2}
+  toolItem: {fileID: 11400000, guid: 73b185fd10aba9f41ace1395d97b4b30, type: 2}
 --- !u!114 &1015796113
 MonoBehaviour:
   m_ObjectHideFlags: 0

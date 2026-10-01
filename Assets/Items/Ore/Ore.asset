@@ -17,6 +17,6 @@ MonoBehaviour:
   icon: {fileID: 5169176031819955633, guid: 3e3d84eb1c9fc9f41830a3a0cbeb5a04, type: 3}
   maxStackSize: 50
   itemPrefab: {fileID: 922398200625846112, guid: 2132cf8a5297b174284ec22e59a3db2b, type: 3}
-  handItemPrefab: {fileID: 0}
+  itemWeight: 10
   baseSellValue: 3
   description: 'Some Rock? '

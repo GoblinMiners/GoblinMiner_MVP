@@ -17,6 +17,6 @@ MonoBehaviour:
   icon: {fileID: 0}
   maxStackSize: 0
   itemPrefab: {fileID: 0}
-  handItemPrefab: {fileID: 0}
+  itemWeight: 7
   baseSellValue: 1
   description: A mysterious amorphus thing

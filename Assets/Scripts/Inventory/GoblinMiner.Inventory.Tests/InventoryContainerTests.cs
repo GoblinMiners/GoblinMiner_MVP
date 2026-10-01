@@ -134,5 +134,69 @@ public class InventoryContainerTests
 		Assert.IsFalse(dropped);
 	}
 
-	
+	[Test]
+	public void Sort_ByType_MergesStacksAndPacksToFront()
+	{
+		var container = new InventoryContainer(4);
+		container.AddItem(rope, 2);              // slot 0: rope x2
+		container.AddItem(ore, 3);               // slot 1: ore x3
+		container.MoveOrSwap(0, 3, 1);           // split the rope: slot 0 x1, slot 3 x1
+
+		container.Sort(SortOrder.Type);
+
+		Assert.AreEqual(ore, container.GetItem(0));    // Resource sorts before Consumable
+		Assert.AreEqual(3, container.GetCount(0));
+		Assert.AreEqual(rope, container.GetItem(1));   // the two ropes merged back together
+		Assert.AreEqual(2, container.GetCount(1));
+		Assert.IsNull(container.GetItem(2));
+		Assert.IsNull(container.GetItem(3));
+	}
+
+	[Test]
+	public void Sort_ByValue_MostValuableFirst()
+	{
+		ore.baseSellValue = 3;
+		rope.baseSellValue = 10;
+
+		var container = new InventoryContainer(2);
+		container.AddItem(ore, 1);    // slot 0
+		container.AddItem(rope, 1);   // slot 1
+
+		container.Sort(SortOrder.Value);
+
+		Assert.AreEqual(rope, container.GetItem(0));
+		Assert.AreEqual(ore, container.GetItem(1));
+	}
+
+	[Test]
+	public void Sort_SplitStacks_RefillsFullStacksFirst()
+	{
+		var container = new InventoryContainer(3);
+		container.AddItem(ore, 7);               // slot 0: x5, slot 1: x2
+		container.MoveOrSwap(0, 2, 1);           // slot 0: x4, slot 1: x2, slot 2: x1
+
+		container.Sort(SortOrder.Type);
+
+		Assert.AreEqual(5, container.GetCount(0));     // a full stack first
+		Assert.AreEqual(2, container.GetCount(1));     // then the rest
+		Assert.IsNull(container.GetItem(2));           // nothing lost or left behind
+	}
+
+	[Test]
+	public void Sort_ByWeight_HeaviestFirst()
+	{
+		ore.itemWeight = 5f;
+		rope.itemWeight = 0.5f;
+
+		var container = new InventoryContainer(2);
+		container.AddItem(rope, 1);   // slot 0
+		container.AddItem(ore, 1);    // slot 1
+
+		container.Sort(SortOrder.Weight);
+
+		Assert.AreEqual(ore, container.GetItem(0));
+		Assert.AreEqual(rope, container.GetItem(1));
+	}
+
+
 }

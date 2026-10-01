@@ -39,7 +39,7 @@ public class TooltipView : MonoBehaviour
 			iconImage.sprite = item.icon;
 			iconImage.enabled = item.icon != null;
 		}
-		detailsText.text = item.itemType + "\nWorth: " + item.baseSellValue;
+		detailsText.text = item.itemType + "\nWorth: " + item.baseSellValue + "\nWeight: " + item.itemWeight;
 
 		bool hasDescription = !string.IsNullOrEmpty(item.description);
 		descriptionText.gameObject.SetActive(hasDescription);
@@ -48,6 +48,7 @@ public class TooltipView : MonoBehaviour
 		panel.SetActive(true);
 
 		LayoutRebuilder.ForceRebuildLayoutImmediate(panelRect);
+
 	}
 
 	public void Hide()

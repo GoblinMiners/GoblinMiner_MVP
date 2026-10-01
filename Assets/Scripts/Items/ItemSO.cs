@@ -8,6 +8,8 @@ public class ItemSO : ScriptableObject
 	public Sprite icon;
     public int maxStackSize = 1;
 	public GameObject itemPrefab;
+	[Tooltip("How heavy 1 of this thing is")]
+	[Min(0)] public float itemWeight = 1f;
 
 	[Header("Tooltip")]
 	[Tooltip("What this sells for at the shops.")]

@@ -17,6 +17,6 @@ MonoBehaviour:
   icon: {fileID: 361880714584236236, guid: 0315e06d16e0c414d9582b8f2fa07a5f, type: 3}
   maxStackSize: 3
   itemPrefab: {fileID: 922398200625846112, guid: c3b1561b3f578e14a9ae23b1041ca5dd, type: 3}
-  handItemPrefab: {fileID: 0}
+  itemWeight: 20
   baseSellValue: 20
   description: Some wood that can hold up the ground

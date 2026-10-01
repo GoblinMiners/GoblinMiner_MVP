@@ -156,6 +156,58 @@ public class InventoryContainer
 
 		return removed;
 	}
+	public void Sort(SortOrder order)
+	{
+		var totals = new Dictionary<ItemSO, int>();
+		foreach (InventorySlot slot in slots)
+		{
+			if (!slot.IsEmpty)
+			{
+				if (totals.ContainsKey(slot.Item))
+					totals[slot.Item] += slot.Count;
+				else
+					totals[slot.Item] = slot.Count;
+			}
+		}
+
+		var items = new List<ItemSO>(totals.Keys);
+		items.Sort((a, b) => Compare(a, b, order));
+
+		foreach (InventorySlot slot in slots)
+			slot.Clear();
+
+		int index = 0;
+		foreach (ItemSO item in items)
+		{
+			int remaining = totals[item];
+			while (remaining > 0 && index < slots.Count)
+			{
+				int toPlace = Mathf.Min(item.maxStackSize, remaining);
+				slots[index].SetItem(item, toPlace);
+				remaining -= toPlace;
+				index++;
+			}
+		}
+
+		for (int i = 0; i < slots.Count; i++)
+			SlotChanged?.Invoke(i);
+	}
+	private static int Compare(ItemSO a, ItemSO b, SortOrder order)
+	{
+		int result = 0;
+
+		if (order == SortOrder.Type)
+			result = a.itemType.CompareTo(b.itemType);
+		else if (order == SortOrder.Value)
+			result = b.baseSellValue.CompareTo(a.baseSellValue);  
+		else if (order == SortOrder.Weight)
+			result = b.itemWeight.CompareTo(a.itemWeight);         
+		
+		if (result == 0)
+			result = string.Compare(a.itemName, b.itemName, StringComparison.OrdinalIgnoreCase);
+
+		return result;
+	}
 
 	private bool IsValidIndex(int index) => index >= 0 && index < slots.Count;
 }

@@ -17,6 +17,6 @@ MonoBehaviour:
   icon: {fileID: 8959118705387878318, guid: 1e3a2880b66a6924c8426b6b16723865, type: 3}
   maxStackSize: 1
   itemPrefab: {fileID: 922398200625846112, guid: 809122b0269ef2a49a25bdb3baa434d7, type: 3}
-  handItemPrefab: {fileID: 0}
+  itemWeight: 15
   baseSellValue: 5
   description: Used to mine
