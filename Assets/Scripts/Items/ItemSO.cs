@@ -8,7 +8,6 @@ public class ItemSO : ScriptableObject
 	public Sprite icon;
     public int maxStackSize = 1;
 	public GameObject itemPrefab;
-	public GameObject handItemPrefab;
 
 	[Header("Tooltip")]
 	[Tooltip("What this sells for at the shops.")]

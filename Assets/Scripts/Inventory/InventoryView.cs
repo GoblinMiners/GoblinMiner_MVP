@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
@@ -14,6 +15,7 @@ public class InventoryView : MonoBehaviour
 	[SerializeField] private TextMeshProUGUI dragAmountTxt;
 	[SerializeField] private InventoryWindow window;
 	[SerializeField] private TooltipView tooltip;
+	[SerializeField] private float markerFlashTime = 0.3f;
 
 	private List<SlotView> inventoryViews = new List<SlotView>();
 	private List<SlotView> hotbarViews = new List<SlotView>();
@@ -23,6 +25,9 @@ public class InventoryView : MonoBehaviour
 	private InventoryContainer dragFromContainer;
 	private int dragFromIndex = -1;
 	private int dragAmount = 0;
+	private InventoryContainer selectedContainer;
+	private int selectedIndex = -1;
+	private Coroutine flashRoutine;
 
 	private void Awake()
 	{
@@ -51,12 +56,12 @@ public class InventoryView : MonoBehaviour
 			view.Dragged += OnSlotDragged;
 			view.DragEnded += OnSlotDragEnded;
 			view.DroppedOn += OnSlotDroppedOn;
-			view.HoverStarted += OnSlotHoverStarted;
-			view.HoverEnded += OnSlotHoverEnded;
+			view.Clicked += OnSlotClicked;
 		}
 
 		bag.SlotChanged += OnBagSlotChanged;
 		hotbar.SlotChanged += OnHotbarSlotChanged;
+		playerInventory.HotbarSlotUsed += OnHotbarSlotUsed;
 
 		if (window != null)
 			window.OpenStateChanged += OnWindowOpenStateChanged;
@@ -75,8 +80,7 @@ public class InventoryView : MonoBehaviour
 			view.Dragged -= OnSlotDragged;
 			view.DragEnded -= OnSlotDragEnded;
 			view.DroppedOn -= OnSlotDroppedOn;
-			view.HoverStarted -= OnSlotHoverStarted;
-			view.HoverEnded -= OnSlotHoverEnded;
+			view.Clicked -= OnSlotClicked;
 		}
 
 		if (bag != null)
@@ -84,6 +88,9 @@ public class InventoryView : MonoBehaviour
 
 		if (hotbar != null)
 			hotbar.SlotChanged -= OnHotbarSlotChanged;
+
+		if (playerInventory != null)
+			playerInventory.HotbarSlotUsed -= OnHotbarSlotUsed;
 
 		if (window != null)
 			window.OpenStateChanged -= OnWindowOpenStateChanged;
@@ -93,14 +100,38 @@ public class InventoryView : MonoBehaviour
 	{
 		if (index < 0 || index >= inventoryViews.Count) return;
 		inventoryViews[index].Refresh(bag.GetItem(index), bag.GetCount(index));
+
+		if (selectedContainer == bag && selectedIndex == index)
+			ShowSelected();
 	}
 
 	private void OnHotbarSlotChanged(int index)
 	{
 		if (index < 0 || index >= hotbarViews.Count) return;
 		hotbarViews[index].Refresh(hotbar.GetItem(index), hotbar.GetCount(index));
-	}
 
+		if (selectedContainer == hotbar && selectedIndex == index)
+			ShowSelected();
+	}
+	private void OnHotbarSlotUsed(int index, ItemSO item)
+	{
+		if (flashRoutine != null)
+			StopCoroutine(flashRoutine);
+
+		flashRoutine = StartCoroutine(FlashMarker(index));
+	}
+	private IEnumerator FlashMarker(int index)
+	{
+		for (int i = 0; i < hotbarViews.Count; i++)
+			hotbarViews[i].ShowActiveMarker(i == index);
+
+		yield return new WaitForSeconds(markerFlashTime); 
+
+		if (index < hotbarViews.Count)
+			hotbarViews[index].ShowActiveMarker(false);
+
+		flashRoutine = null;
+	}
 
 	private void RefreshAll()
 	{
@@ -137,15 +168,15 @@ public class InventoryView : MonoBehaviour
 
 		bool shiftHeld = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
 
-		if (button == PointerEventData.InputButton.Left)
-			dragAmount = count;
-		else if (button == PointerEventData.InputButton.Right && shiftHeld)
+		if (button == PointerEventData.InputButton.Left && shiftHeld)
 			dragAmount = 1;
+		else if (button == PointerEventData.InputButton.Left)
+			dragAmount = count;
 		else if (button == PointerEventData.InputButton.Right)
 			dragAmount = Mathf.CeilToInt(count / 2f);
 		else
 			return;
-
+			  
 		dragFromContainer = from;
 		dragFromIndex = index;
 		dragIcon.sprite = item.icon;
@@ -154,6 +185,8 @@ public class InventoryView : MonoBehaviour
 
 		if (tooltip != null)
 			tooltip.Hide();
+
+		Deselect();
 	}
 
 	private void OnSlotDragged(Vector2 screenPosition)
@@ -186,23 +219,6 @@ public class InventoryView : MonoBehaviour
 			ContainerOf(view), IndexOf(view), dragAmount);
 	}
 
-	private void OnSlotHoverStarted(SlotView view)
-	{
-		if (tooltip == null) return;
-		if (dragFromContainer != null) return; 
-
-		InventoryContainer container = ContainerOf(view);
-		if (container == null) return;
-		
-		tooltip.Show(container.GetItem(IndexOf(view)));
-	}
-
-	private void OnSlotHoverEnded(SlotView view)
-	{
-		if (tooltip != null)
-			tooltip.Hide();
-	}
-
 	private void OnWindowOpenStateChanged(bool isOpen)
 	{
 		if (isOpen) return;
@@ -211,5 +227,54 @@ public class InventoryView : MonoBehaviour
 			tooltip.Hide();
 
 		CancelDrag();
+		Deselect();
+	}
+
+	private void OnSlotClicked(SlotView view, PointerEventData.InputButton button)
+	{
+		if (button != PointerEventData.InputButton.Left) return;
+		Select(ContainerOf(view), IndexOf(view));
+	}
+
+	private void Select(InventoryContainer container, int index)
+	{
+		SlotView previous = ViewOf(selectedContainer, selectedIndex);
+		if (previous != null)
+			previous.SetHighlighted(false);
+
+		selectedContainer = container;
+		selectedIndex = index;
+
+		SlotView current = ViewOf(selectedContainer, selectedIndex);
+		if (current != null)
+			current.SetHighlighted(true);
+
+		ShowSelected();
+	}
+
+	private SlotView ViewOf(InventoryContainer container, int index)
+	{
+		List<SlotView> views = null;
+		if (container == bag) views = inventoryViews;
+		else if (container == hotbar) views = hotbarViews;
+
+		if (views == null || index < 0 || index >= views.Count) return null;
+		return views[index];
+	}
+
+	private void Deselect()
+	{
+		Select(null, -1);
+	}
+
+	private void ShowSelected()
+	{
+		if (tooltip == null) return;
+
+		ItemSO item = null;
+		if (selectedContainer != null)
+			item = selectedContainer.GetItem(selectedIndex);
+
+		tooltip.Show(item);
 	}
 }

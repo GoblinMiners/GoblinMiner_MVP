@@ -6,6 +6,7 @@ public class InventoryWindow : MonoBehaviour
 {
 	[SerializeField] private GameObject container;
 	[SerializeField] private KeyCode toggleKey = KeyCode.Tab;
+	[SerializeField] private KeyCode closeKey = KeyCode.Escape;
 	[SerializeField] private GameObject hotbarContainer;
 
 	public bool IsOpen { get; private set; }
@@ -21,6 +22,9 @@ public class InventoryWindow : MonoBehaviour
 	{
 		if (Input.GetKeyDown(toggleKey))
 			SetOpen(!IsOpen);
+
+		else if (IsOpen && Input.GetKeyDown(closeKey))
+			SetOpen(false);
 
 		if (Input.GetKeyDown(KeyCode.L))
 			Debug.Log("Over panel: " + IsPointerOverPanel());

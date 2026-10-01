@@ -12,6 +12,7 @@ public class PlayerInventory : MonoBehaviour
 	public int BagSlotCount => bagSlotCount;
 	public int HotbarSlotCount => hotbarSlotCount;
 	public event Action<ItemSO, int> ItemsDropped;
+	public event Action<int, ItemSO> HotbarSlotUsed;
 
 	private InventoryContainer bag;
 	private InventoryContainer hotbar;
@@ -62,6 +63,18 @@ public class PlayerInventory : MonoBehaviour
 			Debug.Log("Inventory full, could not add " + leftover + " " + item.itemName);
 
 		return leftover;
+	}
+
+	public void UseHotbarSlot(int index)
+	{
+		if (index < 0 || index >= hotbarSlotCount) return;   // no such slot
+
+		HotbarSlotUsed?.Invoke(index, Hotbar.GetItem(index));
+	}
+
+	public int TakeFromHotbar(int index, int amount)
+	{
+		return Hotbar.TakeFromSlot(index, amount);
 	}
 
 	private void RelayItemsDropped(ItemSO item, int count)

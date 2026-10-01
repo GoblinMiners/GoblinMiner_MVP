@@ -9,7 +9,7 @@ public class TooltipView : MonoBehaviour
 	[SerializeField] private TextMeshProUGUI titleText;
 	[SerializeField] private TextMeshProUGUI detailsText;
 	[SerializeField] private TextMeshProUGUI descriptionText;
-	[SerializeField] private Vector2 mouseOffset = new Vector2(16f, 16f);
+	[SerializeField] private Image iconImage;
 	private RectTransform panelRect;
 
 	private void Awake()
@@ -34,6 +34,11 @@ public class TooltipView : MonoBehaviour
 		}
 
 		titleText.text = item.itemName;
+		if (iconImage != null)
+		{
+			iconImage.sprite = item.icon;
+			iconImage.enabled = item.icon != null;
+		}
 		detailsText.text = item.itemType + "\nWorth: " + item.baseSellValue;
 
 		bool hasDescription = !string.IsNullOrEmpty(item.description);
@@ -43,41 +48,11 @@ public class TooltipView : MonoBehaviour
 		panel.SetActive(true);
 
 		LayoutRebuilder.ForceRebuildLayoutImmediate(panelRect);
-		FollowMouse();
 	}
 
 	public void Hide()
 	{
 		panel.SetActive(false);
 	}
-	private void LateUpdate()
-	{
-		if (panel.activeSelf)
-			FollowMouse();
-	}
-	private void FollowMouse()
-	{
-		Vector2 mouse = Input.mousePosition;
-		Vector2 size = Vector2.Scale(panelRect.rect.size, panelRect.lossyScale);
 
-		float pivotX = 0f;   
-		float pivotY = 1f;   
-		float x = mouse.x + mouseOffset.x;
-		float y = mouse.y - mouseOffset.y;
-
-		if (x + size.x > Screen.width)
-		{
-			pivotX = 1f;  
-			x = mouse.x - mouseOffset.x;
-		}
-
-		if (y - size.y < 0f)
-		{
-			pivotY = 0f;   
-			y = mouse.y + mouseOffset.y;
-		}
-
-		panelRect.pivot = new Vector2(pivotX, pivotY);
-		panelRect.position = new Vector2(x, y);
-	}
 }

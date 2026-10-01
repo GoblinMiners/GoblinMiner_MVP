@@ -62,4 +62,40 @@ public class PlayerInventoryTests
 
 		Assert.AreEqual(5, inventory.Hotbar.GetCount(0));
 	}
+
+	[Test]
+	public void UseHotbarSlot_AnnouncesSlotAndItem()
+	{
+		inventory.Hotbar.AddItem(potion, 2);   // potion in hotbar slot 0
+
+		int usedIndex = -1;
+		ItemSO usedItem = null;
+		inventory.HotbarSlotUsed += (index, item) => { usedIndex = index; usedItem = item; };
+
+		inventory.UseHotbarSlot(0);
+
+		Assert.AreEqual(0, usedIndex);
+		Assert.AreEqual(potion, usedItem);
+	}
+
+	[Test]
+	public void UseHotbarSlot_NoSuchSlot_AnnouncesNothing()
+	{
+		bool announced = false;
+		inventory.HotbarSlotUsed += (index, item) => announced = true;
+
+		inventory.UseHotbarSlot(7);   // the hotbar only has slots 0 to 3
+
+		Assert.IsFalse(announced);
+	}
+
+	[Test]
+	public void TakeFromHotbar_RemovesFromThatSlot()
+	{
+		inventory.Hotbar.AddItem(potion, 2);   // potion in hotbar slot 0
+
+		inventory.TakeFromHotbar(0, 1);
+
+		Assert.AreEqual(1, inventory.Hotbar.GetCount(0));
+	}
 }

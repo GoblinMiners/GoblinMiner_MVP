@@ -91,13 +91,13 @@ public class InventoryContainerTests
 	[Test]
 	public void MoveBetween_ConsumableIntoHotbar_Moves()
 	{
-		var backpack = new InventoryContainer(2);
+		var bag = new InventoryContainer(2);
 		var hotbar = new InventoryContainer(2, ItemType.Consumable, ItemType.Support);
-		backpack.AddItem(rope, 3);
+		bag.AddItem(rope, 3);
 
-		InventoryContainer.MoveBetween(backpack, 0, hotbar, 0, 3);
+		InventoryContainer.MoveBetween(bag, 0, hotbar, 0, 3);
 
-		Assert.IsNull(backpack.GetItem(0));
+		Assert.IsNull(bag.GetItem(0));
 		Assert.AreEqual(rope, hotbar.GetItem(0));
 		Assert.AreEqual(3, hotbar.GetCount(0));
 	}
@@ -105,16 +105,34 @@ public class InventoryContainerTests
 	[Test]
 	public void MoveBetween_SwapWouldPutOreInHotbar_ChangesNothing()
 	{
-		var backpack = new InventoryContainer(2);
+		var bag = new InventoryContainer(2);
 		var hotbar = new InventoryContainer(2, ItemType.Consumable, ItemType.Support);
-		backpack.AddItem(ore, 4);   
+		bag.AddItem(ore, 4);   
 		hotbar.AddItem(rope, 2);    
 
-		InventoryContainer.MoveBetween(hotbar, 0, backpack, 0, 2);
+		InventoryContainer.MoveBetween(hotbar, 0, bag, 0, 2);
 
 		Assert.AreEqual(rope, hotbar.GetItem(0));
 		Assert.AreEqual(2, hotbar.GetCount(0));
-		Assert.AreEqual(ore, backpack.GetItem(0));
-		Assert.AreEqual(4, backpack.GetCount(0));
+		Assert.AreEqual(ore, bag.GetItem(0));
+		Assert.AreEqual(4, bag.GetCount(0));
 	}
+
+	[Test]
+	public void TakeFromSlot_RemovesWithoutDropping()
+	{
+		var container = new InventoryContainer(1);
+		container.AddItem(ore, 4);
+
+		bool dropped = false;
+		container.ItemsDropped += (item, count) => dropped = true;
+
+		int taken = container.TakeFromSlot(0, 1);
+
+		Assert.AreEqual(1, taken);
+		Assert.AreEqual(3, container.GetCount(0));
+		Assert.IsFalse(dropped);
+	}
+
+	
 }

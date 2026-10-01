@@ -134,19 +134,25 @@ public class InventoryContainer
 		to.SlotChanged?.Invoke(toIndex);
 	}
 
-	public int DropFromSlot(int index, int amount)
+	public int TakeFromSlot(int index, int amount)
 	{
 		if (!IsValidIndex(index) || amount <= 0) return 0;
 
-		InventorySlot slot = slots[index];
-		ItemSO item = slot.Item;
-		int removed = slot.RemoveAmount(amount);
+		int removed = slots[index].RemoveAmount(amount);
 
 		if (removed > 0)
-		{
 			SlotChanged?.Invoke(index);
+
+		return removed;
+	}
+
+	public int DropFromSlot(int index, int amount)
+	{
+		ItemSO item = GetItem(index);
+		int removed = TakeFromSlot(index, amount);
+
+		if (removed > 0)
 			ItemsDropped?.Invoke(item, removed);
-		}
 
 		return removed;
 	}
