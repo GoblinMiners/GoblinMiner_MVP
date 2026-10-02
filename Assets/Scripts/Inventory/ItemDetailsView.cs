@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class TooltipView : MonoBehaviour
+public class ItemDetailsView : MonoBehaviour
 {
 	[Tooltip("The popup that gets shown and hidden.")]
 	[SerializeField] private GameObject panel;

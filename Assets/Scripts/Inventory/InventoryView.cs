@@ -14,8 +14,9 @@ public class InventoryView : MonoBehaviour
 	[SerializeField] private Image dragIcon;
 	[SerializeField] private TextMeshProUGUI dragAmountTxt;
 	[SerializeField] private InventoryWindow window;
-	[SerializeField] private TooltipView tooltip;
+	[SerializeField] private ItemDetailsView detailsView;
 	[SerializeField] private float markerFlashTime = 0.3f;
+	[SerializeField] private SortControlsView sortControls;
 
 	private List<SlotView> inventoryViews = new List<SlotView>();
 	private List<SlotView> hotbarViews = new List<SlotView>();
@@ -63,6 +64,9 @@ public class InventoryView : MonoBehaviour
 		hotbar.SlotChanged += OnHotbarSlotChanged;
 		playerInventory.HotbarSlotUsed += OnHotbarSlotUsed;
 
+		if (sortControls != null)
+			sortControls.SortRequested += OnSortRequested;
+
 		if (window != null)
 			window.OpenStateChanged += OnWindowOpenStateChanged;
 
@@ -91,6 +95,9 @@ public class InventoryView : MonoBehaviour
 
 		if (playerInventory != null)
 			playerInventory.HotbarSlotUsed -= OnHotbarSlotUsed;
+
+		if (sortControls != null)
+			sortControls.SortRequested -= OnSortRequested;
 
 		if (window != null)
 			window.OpenStateChanged -= OnWindowOpenStateChanged;
@@ -183,8 +190,8 @@ public class InventoryView : MonoBehaviour
 		dragAmountTxt.text = dragAmount.ToString();
 		dragIcon.gameObject.SetActive(true);
 
-		if (tooltip != null)
-			tooltip.Hide();
+		if (detailsView != null)
+			detailsView.Hide();
 
 		Deselect();
 	}
@@ -223,8 +230,8 @@ public class InventoryView : MonoBehaviour
 	{
 		if (isOpen) return;
 
-		if (!isOpen && tooltip != null)
-			tooltip.Hide();
+		if (!isOpen && detailsView != null)
+			detailsView.Hide();
 
 		CancelDrag();
 		Deselect();
@@ -267,14 +274,19 @@ public class InventoryView : MonoBehaviour
 		Select(null, -1);
 	}
 
+	private void OnSortRequested(SortOrder order)
+	{
+		Deselect();
+		playerInventory.SortBag(order);
+	}
 	private void ShowSelected()
 	{
-		if (tooltip == null) return;
+		if (detailsView == null) return;
 
 		ItemSO item = null;
 		if (selectedContainer != null)
 			item = selectedContainer.GetItem(selectedIndex);
 
-		tooltip.Show(item);
+		detailsView.Show(item);
 	}
 }
