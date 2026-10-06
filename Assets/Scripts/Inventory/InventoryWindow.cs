@@ -30,7 +30,7 @@ public class InventoryWindow : MonoBehaviour
 			Debug.Log("Over panel: " + IsPointerOverPanel());
 	}
 
-	private void SetOpen(bool open)
+	public void SetOpen(bool open)
 	{
 		IsOpen = open;
 

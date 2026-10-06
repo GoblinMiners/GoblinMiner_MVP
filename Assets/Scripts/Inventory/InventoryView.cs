@@ -17,6 +17,8 @@ public class InventoryView : MonoBehaviour
 	[SerializeField] private ItemDetailsView detailsView;
 	[SerializeField] private float markerFlashTime = 0.3f;
 	[SerializeField] private SortControlsView sortControls;
+	[SerializeField] private GameObject storagePanel;
+	[SerializeField] private Transform storageSlotParent;
 
 	private List<SlotView> inventoryViews = new List<SlotView>();
 	private List<SlotView> hotbarViews = new List<SlotView>();
@@ -29,6 +31,8 @@ public class InventoryView : MonoBehaviour
 	private InventoryContainer selectedContainer;
 	private int selectedIndex = -1;
 	private Coroutine flashRoutine;
+	private InventoryContainer storage;
+	private List<SlotView> storageViews = new List<SlotView>();
 
 	private void Awake()
 	{
@@ -63,6 +67,11 @@ public class InventoryView : MonoBehaviour
 		bag.SlotChanged += OnBagSlotChanged;
 		hotbar.SlotChanged += OnHotbarSlotChanged;
 		playerInventory.HotbarSlotUsed += OnHotbarSlotUsed;
+		playerInventory.StorageOpened += OnStorageOpened;
+		playerInventory.StorageClosed += OnStorageClosed;
+
+		if (storagePanel != null)
+			storagePanel.SetActive(false);
 
 		if (sortControls != null)
 			sortControls.SortRequested += OnSortRequested;
@@ -94,7 +103,14 @@ public class InventoryView : MonoBehaviour
 			hotbar.SlotChanged -= OnHotbarSlotChanged;
 
 		if (playerInventory != null)
+		{
 			playerInventory.HotbarSlotUsed -= OnHotbarSlotUsed;
+			playerInventory.StorageOpened -= OnStorageOpened;
+			playerInventory.StorageClosed -= OnStorageClosed;
+		}
+
+		if (storage != null)
+			storage.SlotChanged -= OnStorageSlotChanged;
 
 		if (sortControls != null)
 			sortControls.SortRequested -= OnSortRequested;
@@ -119,6 +135,50 @@ public class InventoryView : MonoBehaviour
 
 		if (selectedContainer == hotbar && selectedIndex == index)
 			ShowSelected();
+	}
+
+	private void OnStorageOpened(InventoryContainer opened)
+	{
+		if (storagePanel == null || storageSlotParent == null)
+		{
+			Debug.LogError("[InventoryView] Storage Panel or Storage Slot Parent is not assigned.", this);
+			return;
+		}
+
+		storage = opened;
+		storage.SlotChanged += OnStorageSlotChanged;
+
+		for (int i = 0; i < storage.SlotCount; i++)
+		{
+			storageViews.Add(Instantiate(slotPrefab, storageSlotParent));
+			OnStorageSlotChanged(i);
+		}
+
+		storagePanel.SetActive(true);
+
+		if (window != null)
+			window.SetOpen(true);
+	}
+
+	private void OnStorageClosed(InventoryContainer closed)
+	{
+		if (storage != null)
+			storage.SlotChanged -= OnStorageSlotChanged;
+
+		foreach (SlotView view in storageViews)
+			Destroy(view.gameObject);
+
+		storageViews.Clear();
+		storage = null;
+
+		if (storagePanel != null)
+			storagePanel.SetActive(false);
+	}
+
+	private void OnStorageSlotChanged(int index)
+	{
+		if (index < 0 || index >= storageViews.Count) return;
+		storageViews[index].Refresh(storage.GetItem(index), storage.GetCount(index));
 	}
 	private void OnHotbarSlotUsed(int index, ItemSO item)
 	{
@@ -230,11 +290,12 @@ public class InventoryView : MonoBehaviour
 	{
 		if (isOpen) return;
 
-		if (!isOpen && detailsView != null)
+		if (detailsView != null)
 			detailsView.Hide();
 
 		CancelDrag();
 		Deselect();
+		playerInventory.CloseStorage();
 	}
 
 	private void OnSlotClicked(SlotView view, PointerEventData.InputButton button)

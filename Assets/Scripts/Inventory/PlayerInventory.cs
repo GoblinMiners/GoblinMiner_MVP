@@ -13,9 +13,12 @@ public class PlayerInventory : MonoBehaviour
 	public int HotbarSlotCount => hotbarSlotCount;
 	public event Action<ItemSO, int> ItemsDropped;
 	public event Action<int, ItemSO> HotbarSlotUsed;
+	public event Action<InventoryContainer> StorageOpened;
+	public event Action<InventoryContainer> StorageClosed;
 
 	private InventoryContainer bag;
 	private InventoryContainer hotbar;
+	private InventoryContainer openStorage;
 
 	public InventoryContainer Bag
 	{
@@ -80,6 +83,26 @@ public class PlayerInventory : MonoBehaviour
 	public void SortBag(SortOrder order)
 	{
 		Bag.Sort(order);
+	}
+
+	public void OpenStorage(InventoryContainer storage)
+	{
+		if (storage == null || storage == openStorage) return;
+
+		CloseStorage();
+		openStorage = storage;
+		openStorage.ItemsDropped += RelayItemsDropped;
+		StorageOpened?.Invoke(storage);
+	}
+
+	public void CloseStorage()
+	{
+		if (openStorage == null) return;
+
+		InventoryContainer closing = openStorage;
+		openStorage = null;
+		StorageClosed?.Invoke(closing);
+		closing.ItemsDropped -= RelayItemsDropped;
 	}
 
 	private void RelayItemsDropped(ItemSO item, int count)
