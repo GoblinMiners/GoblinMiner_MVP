@@ -17,6 +17,7 @@ public class InventoryView : MonoBehaviour
 	[SerializeField] private ItemDetailsView detailsView;
 	[SerializeField] private float markerFlashTime = 0.3f;
 	[SerializeField] private SortControlsView sortControls;
+	[SerializeField] private SortControlsView storageSortControls;
 	[SerializeField] private GameObject storagePanel;
 	[SerializeField] private Transform storageSlotParent;
 
@@ -76,6 +77,9 @@ public class InventoryView : MonoBehaviour
 		if (sortControls != null)
 			sortControls.SortRequested += OnSortRequested;
 
+		if (storageSortControls != null)
+			storageSortControls.SortRequested += OnStorageSortRequested;
+
 		if (window != null)
 			window.OpenStateChanged += OnWindowOpenStateChanged;
 
@@ -115,6 +119,9 @@ public class InventoryView : MonoBehaviour
 		if (sortControls != null)
 			sortControls.SortRequested -= OnSortRequested;
 
+		if (storageSortControls != null)
+			storageSortControls.SortRequested -= OnStorageSortRequested;
+
 		if (window != null)
 			window.OpenStateChanged -= OnWindowOpenStateChanged;
 	}
@@ -150,7 +157,13 @@ public class InventoryView : MonoBehaviour
 
 		for (int i = 0; i < storage.SlotCount; i++)
 		{
-			storageViews.Add(Instantiate(slotPrefab, storageSlotParent));
+			SlotView view = Instantiate(slotPrefab, storageSlotParent);
+			view.DragStarted += OnSlotDragStarted;
+			view.Dragged += OnSlotDragged;
+			view.DragEnded += OnSlotDragEnded;
+			view.DroppedOn += OnSlotDroppedOn;
+			view.Clicked += OnSlotClicked;
+			storageViews.Add(view);
 			OnStorageSlotChanged(i);
 		}
 
@@ -162,6 +175,9 @@ public class InventoryView : MonoBehaviour
 
 	private void OnStorageClosed(InventoryContainer closed)
 	{
+		if (selectedContainer == storage)
+			Deselect();
+
 		if (storage != null)
 			storage.SlotChanged -= OnStorageSlotChanged;
 
@@ -179,6 +195,9 @@ public class InventoryView : MonoBehaviour
 	{
 		if (index < 0 || index >= storageViews.Count) return;
 		storageViews[index].Refresh(storage.GetItem(index), storage.GetCount(index));
+
+		if (selectedContainer == storage && selectedIndex == index)
+			ShowSelected();
 	}
 	private void OnHotbarSlotUsed(int index, ItemSO item)
 	{
@@ -213,6 +232,7 @@ public class InventoryView : MonoBehaviour
 	{
 		if (inventoryViews.Contains(view)) return bag;
 		if (hotbarViews.Contains(view)) return hotbar;
+		if (storageViews.Contains(view)) return storage;
 		return null;
 	}
 
@@ -220,7 +240,9 @@ public class InventoryView : MonoBehaviour
 	{
 		int index = inventoryViews.IndexOf(view);
 		if (index >= 0) return index;
-		return hotbarViews.IndexOf(view);
+		index = hotbarViews.IndexOf(view);
+		if (index >= 0) return index;
+		return storageViews.IndexOf(view);
 	}
 
 	private void OnSlotDragStarted(SlotView view, PointerEventData.InputButton button)
@@ -265,7 +287,7 @@ public class InventoryView : MonoBehaviour
 	private void OnSlotDragEnded(SlotView view)
 	{
 		if (dragFromContainer != null && !window.IsPointerOverPanel())
-			dragFromContainer.DropFromSlot(dragFromIndex, dragAmount);
+			playerInventory.DropFromSlot(dragFromContainer, dragFromIndex, dragAmount);
 
 		CancelDrag();
 	}
@@ -282,8 +304,8 @@ public class InventoryView : MonoBehaviour
 	{
 		if (dragFromContainer == null) return;
 
-		InventoryContainer.MoveBetween(dragFromContainer, dragFromIndex,
-			ContainerOf(view), IndexOf(view), dragAmount);
+		playerInventory.MoveItem(dragFromContainer, dragFromIndex,
+		ContainerOf(view), IndexOf(view), dragAmount);
 	}
 
 	private void OnWindowOpenStateChanged(bool isOpen)
@@ -325,6 +347,7 @@ public class InventoryView : MonoBehaviour
 		List<SlotView> views = null;
 		if (container == bag) views = inventoryViews;
 		else if (container == hotbar) views = hotbarViews;
+		else if (storage != null && container == storage) views = storageViews;
 
 		if (views == null || index < 0 || index >= views.Count) return null;
 		return views[index];
@@ -339,6 +362,12 @@ public class InventoryView : MonoBehaviour
 	{
 		Deselect();
 		playerInventory.SortBag(order);
+	}
+
+	private void OnStorageSortRequested(SortOrder order)
+	{
+		Deselect();
+		playerInventory.SortStorage(order);
 	}
 	private void ShowSelected()
 	{

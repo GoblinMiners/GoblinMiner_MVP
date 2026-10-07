@@ -90,4 +90,53 @@ public class PlayerStorageTests
 		Assert.IsFalse(passedOn);
 		Object.DestroyImmediate(item);
 	}
+
+	[Test]
+	public void MoveItem_FromBagIntoOpenStorage_Moves()
+	{
+		var item = ScriptableObject.CreateInstance<ItemSO>();
+		item.maxStackSize = 10;
+		var box = new InventoryContainer(4);
+		player.Bag.AddItem(item, 3);
+		player.OpenStorage(box);
+
+		player.MoveItem(player.Bag, 0, box, 0, 3);
+
+		Assert.AreEqual(3, box.GetCount(0));
+		Object.DestroyImmediate(item);
+	}
+
+	[Test]
+	public void MoveItem_IntoClosedStorage_IsRefused()
+	{
+		var item = ScriptableObject.CreateInstance<ItemSO>();
+		item.maxStackSize = 10;
+		var box = new InventoryContainer(4);
+		player.Bag.AddItem(item, 3);
+		player.OpenStorage(box);
+		player.CloseStorage();
+
+		player.MoveItem(player.Bag, 0, box, 0, 3);
+
+		Assert.AreEqual(0, box.GetCount(0));
+		Assert.AreEqual(3, player.Bag.GetCount(0));
+		Object.DestroyImmediate(item);
+	}
+
+	[Test]
+	public void DropFromSlot_FromClosedStorage_IsRefused()
+	{
+		var item = ScriptableObject.CreateInstance<ItemSO>();
+		item.maxStackSize = 10;
+		var box = new InventoryContainer(4);
+		box.AddItem(item, 3);
+		player.OpenStorage(box);
+		player.CloseStorage();
+
+		int dropped = player.DropFromSlot(box, 0, 3);
+
+		Assert.AreEqual(0, dropped);
+		Assert.AreEqual(3, box.GetCount(0));
+		Object.DestroyImmediate(item);
+	}
 }

@@ -4483,6 +4483,7 @@ MonoBehaviour:
   detailsView: {fileID: 1071808259}
   markerFlashTime: 0.3
   sortControls: {fileID: 655762148}
+  storageSortControls: {fileID: 698959293}
   storagePanel: {fileID: 1671185267}
   storageSlotParent: {fileID: 264408819}
 --- !u!114 &1461082405

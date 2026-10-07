@@ -85,6 +85,12 @@ public class PlayerInventory : MonoBehaviour
 		Bag.Sort(order);
 	}
 
+	public void SortStorage(SortOrder order)
+	{
+		if (openStorage != null)
+			openStorage.Sort(order);
+	}
+
 	public void OpenStorage(InventoryContainer storage)
 	{
 		if (storage == null || storage == openStorage) return;
@@ -105,9 +111,32 @@ public class PlayerInventory : MonoBehaviour
 		closing.ItemsDropped -= RelayItemsDropped;
 	}
 
-	private void RelayItemsDropped(ItemSO item, int count)
+
+
+	public void MoveItem(InventoryContainer from, int fromIndex,
+	InventoryContainer to, int toIndex, int amount)
 	{
-		ItemsDropped?.Invoke(item, count);
+		if (!CanReach(from) || !CanReach(to)) return;
+
+	InventoryContainer.MoveBetween(from, fromIndex, to, toIndex, amount);
 	}
+
+	public int DropFromSlot(InventoryContainer container, int index, int amount)
+	{
+		if (!CanReach(container)) return 0;
+
+		return container.DropFromSlot(index, amount);
+	}
+
+	private bool CanReach(InventoryContainer container)
+	{
+		if (container == null) return false;
+		return container == Bag || container == Hotbar || container == openStorage;
+	}
+
+	private void RelayItemsDropped(ItemSO item, int count)
+		{
+		ItemsDropped?.Invoke(item, count);
+		}
 
 }
