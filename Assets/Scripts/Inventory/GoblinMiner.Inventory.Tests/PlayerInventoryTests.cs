@@ -1,5 +1,7 @@
 using NUnit.Framework;
 using UnityEngine;
+using Inventory;
+
 
 public class PlayerInventoryTests
 {

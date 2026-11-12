@@ -1,4 +1,6 @@
 using UnityEngine;
+using Inventory;
+
 
 public class HotbarInput : MonoBehaviour
 {

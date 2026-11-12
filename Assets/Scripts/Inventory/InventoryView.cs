@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using TMPro;
+using Inventory;
+
 
 public class InventoryView : MonoBehaviour
 {

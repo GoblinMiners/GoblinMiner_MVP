@@ -1,4 +1,5 @@
 using UnityEngine;
+using Inventory;
 
 // Test-only ****Replace with actual consumable system once built****
 

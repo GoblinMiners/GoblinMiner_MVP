@@ -1,4 +1,5 @@
 using UnityEngine;
+using Inventory;
 
 // *****NOTE TO REPLACE PROXY ITEMS WITH ITEMS ONCE THEY ARE MADE OR DELETE THIS FOR BETTER SCRIPT******
 public class ItemDropSpawner : MonoBehaviour
