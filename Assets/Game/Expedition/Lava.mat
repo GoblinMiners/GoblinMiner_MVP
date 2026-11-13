@@ -12,7 +12,8 @@ Material:
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
-  m_InvalidKeywords: []
+  m_InvalidKeywords:
+  - _ZWRITE_ON
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -25,9 +26,14 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _Glow: 1.4
-    - _ZWrite: 1
+    - _FresnelStrength: 0.42
+    - _Glow: 1.25
+    - _RippleScale: 2.25
+    - _RippleSpeed: 0.58
+    - _RippleStrength: 0.27
+    - _ShoreFoam: 0.14
+    - _ZWrite: 0
     m_Colors:
-    - _BaseColor: {r: 1, g: 0.16, b: 0.015, a: 1}
+    - _BaseColor: {r: 1, g: 0.18, b: 0.025, a: 0.94}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

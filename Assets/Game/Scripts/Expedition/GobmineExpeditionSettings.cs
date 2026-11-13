@@ -32,8 +32,8 @@ public sealed class GobmineExpeditionSettings : ScriptableObject
     public Material waterMaterial;
     public Material lavaMaterial;
     [Header("Damage / exposure")]
-    [Min(0f)] public float safeFallMetres = 3f;
-    [Min(1f)] public float lethalFallMetres = 12f;
+    [Min(0f)] public float safeFallMetres = 5.5f;
+    [Min(1f)] public float lethalFallMetres = 34f;
     [Min(0.25f)] public float waterCushionDepthMetres = 2.5f;
     [Min(1f)] public float oxygenSeconds = 30f;
     [Min(1f)] public float tankOxygenSeconds = 90f;

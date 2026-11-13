@@ -25,9 +25,14 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
+    - _FresnelStrength: 0.58
     - _Glow: 0
+    - _RippleScale: 1.65
+    - _RippleSpeed: 0.75
+    - _RippleStrength: 0.2
+    - _ShoreFoam: 0.36
     - _ZWrite: 0
     m_Colors:
-    - _BaseColor: {r: 0.04, g: 0.32, b: 0.58, a: 0.7}
+    - _BaseColor: {r: 0.023, g: 0.29, b: 0.44, a: 0.5}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

@@ -229,6 +229,7 @@ public partial class World
                         live.PublishPreparedMesh(staged.Prepared);
                         _meshFence.MarkBuilt(coord);
                         _dirtyMeshes.Remove(coord);
+                        OnTerrainColliderRebuilt(coord);
                     }
                     else staged.Prepared.Dispose(); // Sleeping/reused chunk: never publish into another coordinate.
                     _shapeStagedChunks.Remove(coord);

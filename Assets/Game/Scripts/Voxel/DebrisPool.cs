@@ -192,6 +192,21 @@ public class DebrisPool : MonoBehaviour
         return obj;
     }
 
+    /// <summary>Wake already-settled cosmetic rubble when the terrain collider
+    /// underneath is rebuilt. It remains pooled and is still time-limited.</summary>
+    public void WakeDebrisNear(Bounds changed)
+    {
+        if (!NetworkServer.active) return;
+        foreach (GameObject item in _expiry.Keys)
+        {
+            if (item == null || !item.activeInHierarchy) continue;
+            Rigidbody body = item.GetComponent<Rigidbody>();
+            if (body == null || body.isKinematic || !body.IsSleeping()) continue;
+            Collider collider = item.GetComponent<Collider>();
+            if (collider != null && collider.bounds.Intersects(changed)) body.WakeUp();
+        }
+    }
+
     private bool RemoveLease(GameObject obj)
     {
         if (!_expiry.Remove(obj)) return false;
