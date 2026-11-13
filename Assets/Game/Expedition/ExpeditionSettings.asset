@@ -23,16 +23,16 @@ MonoBehaviour:
   lavaPocketChancePerThousand: 500
   initialFluidFillFraction: 0.3
   fluidCellMetres: 1
-  fluidOperationsPerFrame: 24
-  fluidMillisecondsPerFrame: 1.5
-  fluidDiscoveryCellsPerFrame: 64
+  fluidOperationsPerFrame: 96
+  fluidMillisecondsPerFrame: 2
+  fluidDiscoveryCellsPerFrame: 96
   fluidActiveRadiusMetres: 12
-  fluidRegionsPerFrame: 1
+  fluidRegionsPerFrame: 3
   maxRenderedFluidRegions: 160
   waterMaterial: {fileID: 2100000, guid: 820e902e7d9c9de42b45f494d2821d67, type: 2}
   lavaMaterial: {fileID: 2100000, guid: 2a938cb7ded604640be6c84488b992ab, type: 2}
-  safeFallMetres: 3
-  lethalFallMetres: 12
+  safeFallMetres: 5.5
+  lethalFallMetres: 34
   waterCushionDepthMetres: 2.5
   oxygenSeconds: 30
   tankOxygenSeconds: 90

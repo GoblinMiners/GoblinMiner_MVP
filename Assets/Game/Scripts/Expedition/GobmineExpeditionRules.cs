@@ -34,14 +34,30 @@ public static class GobmineExpeditionRules
         return tier;
     }
     public static bool Has(int flags, GobmineResearch bit) => (flags & (int)bit) == (int)bit;
-    public static float FallDamage(float distance, float gravity, float terminalSpeed, float safeDistance, float lethalDistance, float maxHealth)
+    /// <summary>
+    /// Forgiving gameplay fall curve: ordinary cave ledges are survivable while
+    /// very deep shafts remain dangerous. The old linear 3m -> 12m lethal rule
+    /// killed players after routine exploration. We scale with distance beyond
+    /// the safe limit, eased rather than applying one-third health at 6m.
+    /// Extremely low terminal speeds (e.g. swimming) cannot produce hard impact.
+    /// </summary>
+    public static float FallDamage(float distance, float gravity, float terminalSpeed,
+        float safeDistance, float lethalDistance, float maxHealth)
     {
-        if (!Finite(distance) || !Finite(gravity) || !Finite(terminalSpeed) || distance <= safeDistance) return 0f;
-        // Energy-equivalent drop, bounded by the motor's terminal speed. Duration is
-        // tracked independently; waiting for terrain is not accumulated fall distance.
+        if (!Finite(distance) || !Finite(gravity) || !Finite(terminalSpeed) ||
+            !Finite(safeDistance) || !Finite(lethalDistance) || !Finite(maxHealth) ||
+            distance <= safeDistance || maxHealth <= 0f || terminalSpeed <= 0f) return 0f;
         float g = Mathf.Max(0.1f, Mathf.Abs(gravity));
-        float effective = Mathf.Min(distance, terminalSpeed * terminalSpeed / (2f * g));
-        return Mathf.Clamp01((effective - safeDistance) / Mathf.Max(0.1f, lethalDistance - safeDistance)) * maxHealth;
+        float safeSpeed = Mathf.Sqrt(2f * g * Mathf.Max(0f, safeDistance));
+        float impactSpeed = Mathf.Min(terminalSpeed, Mathf.Sqrt(2f * g * distance));
+        if (impactSpeed <= safeSpeed) return 0f;
+        float progress = Mathf.Clamp01((distance - safeDistance) /
+            Mathf.Max(0.1f, lethalDistance - safeDistance));
+        // About 10 damage from a 12m drop with the new 5.5m/34m defaults,
+        // increasing to major damage only for genuinely deep falls.
+        float eased = Mathf.Pow(progress, 1.55f);
+        float speedFactor = Mathf.Lerp(0.7f, 1f, Mathf.Clamp01(impactSpeed / 25f));
+        return Mathf.Min(maxHealth, eased * maxHealth * speedFactor);
     }
     public static float WaterImpactMultiplier(float depth, float fullCushionDepth)
         => 1f - Mathf.Clamp01(depth / Mathf.Max(0.25f, fullCushionDepth));

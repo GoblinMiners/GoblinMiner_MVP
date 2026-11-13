@@ -8,6 +8,8 @@ public class Chunk : MonoBehaviour
     private MeshRenderer _meshRenderer;
     private MeshCollider _meshCollider;
     private Mesh _mesh;
+    // Rebuild into this offscreen buffer; never Clear() the visible/collidable mesh.
+    private Mesh _standbyMesh;
     private bool _hasBuiltMesh;
     // Empty (fully air or solid) chunks correctly have no surface mesh/collider.
     // A null mesh is only a fault when this chunk actually contains triangles.
@@ -20,6 +22,7 @@ public class Chunk : MonoBehaviour
     private readonly List<int> _triangleMaterials=new List<int>();
     private readonly TerrainMeshBuilder.Result _meshData=new TerrainMeshBuilder.Result();
     private readonly List<Material> _materials=new List<Material>();
+    private readonly List<int> _scratchTriangleMaterials = new List<int>();
     private System.Func<Vector3Int,int> _materialResolver;
     private void Awake()
     {
@@ -35,9 +38,16 @@ public class Chunk : MonoBehaviour
     }
     private void OnDestroy()
     {
-        if (_mesh == null) return;
-        if (Application.isPlaying) Destroy(_mesh);
-        else DestroyImmediate(_mesh);
+        if (_mesh != null)
+        {
+            if (Application.isPlaying) Destroy(_mesh);
+            else DestroyImmediate(_mesh);
+        }
+        if (_standbyMesh != null && _standbyMesh != _mesh)
+        {
+            if (Application.isPlaying) Destroy(_standbyMesh);
+            else DestroyImmediate(_standbyMesh);
+        }
     }
     public float[,,] GetDensities()=>_densities;
     public int GetHitMaterialId(int triangleIndex)=>triangleIndex>=0 && triangleIndex<_triangleMaterials.Count?_triangleMaterials[triangleIndex]:0;
@@ -52,6 +62,7 @@ public class Chunk : MonoBehaviour
     public sealed class PreparedMesh : System.IDisposable
     {
         internal Mesh Mesh;
+        internal float[,,] DensitySnapshot;
         internal TerrainMeshBuilder.Result Data;
         internal readonly List<int> TriangleMaterials = new List<int>();
         internal readonly List<Material> Materials = new List<Material>();
@@ -67,13 +78,15 @@ public class Chunk : MonoBehaviour
         }
     }
 
-    public PreparedMesh PrepareMeshWithoutPublishing()
+    public PreparedMesh PrepareMeshWithoutPublishing(float[,,] densitySnapshot = null)
     {
-        if (_densities == null) throw new System.InvalidOperationException("Cannot prepare an uninitialized chunk.");
+        float[,,] source = densitySnapshot ?? _densities;
+        if (source == null) throw new System.InvalidOperationException("Cannot prepare an uninitialized chunk.");
         // Separate scratch state: ordinary BuildMeshSync() and another staged
         // build must not mutate a mesh that is currently being shown.
         var prepared = new PreparedMesh();
-        prepared.Data = TerrainMeshBuilder.Build(_densities, _size, _voxelSize,
+        prepared.DensitySnapshot = densitySnapshot;
+        prepared.Data = TerrainMeshBuilder.Build(source, _size, _voxelSize,
             _globalOrigin, _materialResolver, new TerrainMeshBuilder.Result());
         var data = prepared.Data;
         var mesh = new Mesh { name = "Gobmine prepared terrain", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
@@ -95,7 +108,7 @@ public class Chunk : MonoBehaviour
         // Bake while the old collider is still active; assigning the prepared
         // collider during the eventual swap then avoids much of the cook cost.
         if (prepared.TriangleMaterials.Count > 0)
-            Physics.BakeMesh(mesh.GetEntityId(), false);
+            Physics.BakeMesh(mesh.GetInstanceID(), false);
         return prepared;
     }
 
@@ -103,47 +116,89 @@ public class Chunk : MonoBehaviour
     {
         if (prepared == null || prepared.Mesh == null)
             throw new System.ArgumentException("A staged mesh must be prepared before publishing.");
-        var old = _mesh;
-        _hasBuiltMesh = false;
-        _meshCollider.sharedMesh = null;
-        _mesh = prepared.Mesh;
-        prepared.Mesh = null; // Ownership passes to this Chunk.
-        _meshFilter.sharedMesh = _mesh;
+        Mesh oldVisible = _mesh;
+        Mesh oldStandby = _standbyMesh;
+        // Publish the exact density snapshot used for the prepared mesh.
+        // Never expose newer/older density and geometry as the same chunk view.
+        if (prepared.DensitySnapshot != null)
+        {
+            // Preserve the chunk's reusable density allocation. The caller can
+            // recycle the immutable staging buffer after publication.
+            float[,,] snapshot = prepared.DensitySnapshot;
+            if (_densities != null && !object.ReferenceEquals(_densities, snapshot) &&
+                _densities.Length == snapshot.Length &&
+                _densities.GetLength(0) == snapshot.GetLength(0) &&
+                _densities.GetLength(1) == snapshot.GetLength(1) &&
+                _densities.GetLength(2) == snapshot.GetLength(2))
+                System.Array.Copy(snapshot, _densities, snapshot.Length);
+            else _densities = snapshot;
+        }
+        Mesh next = prepared.Mesh;
+        prepared.Mesh = null; // Transfer ownership to this chunk.
+        // Neither the old rendered mesh nor its physics surface is cleared.
+        // The prepared mesh becomes both representations in one synchronous call.
+        _mesh = next;
+        _meshFilter.sharedMesh = next;
         _triangleMaterials.Clear();
         _triangleMaterials.AddRange(prepared.TriangleMaterials);
         _meshRenderer.SetSharedMaterials(prepared.Materials);
         _meshRenderer.enabled = _triangleMaterials.Count > 0;
-        if (_triangleMaterials.Count > 0) _meshCollider.sharedMesh = _mesh;
+        _meshCollider.sharedMesh = _triangleMaterials.Count > 0 ? next : null;
+        _standbyMesh = oldVisible; // Reuse this offscreen for a later ordinary cut.
         _hasBuiltMesh = true;
         World world = World.Instance;
         if (world != null) world.RefreshRadiationSurface(_globalOrigin, prepared.Data);
         prepared.Dispose();
-        if (old != null)
+        if (oldStandby != null && oldStandby != next && oldStandby != oldVisible)
         {
-            if (Application.isPlaying) Destroy(old);
-            else DestroyImmediate(old);
+            if (Application.isPlaying) Destroy(oldStandby);
+            else DestroyImmediate(oldStandby);
         }
     }
 
     public void BuildMeshSync()
     {
-        _hasBuiltMesh = false;
-        if(_densities==null)return;
-        World world=World.Instance;
-        var data=TerrainMeshBuilder.Build(_densities,_size,_voxelSize,_globalOrigin,_materialResolver,_meshData);
-        _meshCollider.sharedMesh=null;_mesh.Clear();_mesh.SetVertices(data.Vertices);_triangleMaterials.Clear();
-        _mesh.subMeshCount=Mathf.Max(1,data.Triangles.Count);
-        var materials=_materials; materials.Clear();int submesh=0;
-        foreach(var group in data.Triangles)
+        if (_densities == null) { _hasBuiltMesh = false; return; }
+        World world = World.Instance;
+        var data = TerrainMeshBuilder.Build(_densities, _size, _voxelSize,
+            _globalOrigin, _materialResolver, _meshData);
+        // A MeshFilter/Collider using _mesh must NEVER see it cleared in-place.
+        // Build the next complete triangle set in an unassigned Mesh instead.
+        Mesh next = _standbyMesh;
+        if (next == null)
         {
-            _mesh.SetTriangles(group.Value,submesh++);
-            materials.Add(world!=null?world.GetMaterialForSurface(group.Key):null);
-            for(int i=0;i<group.Value.Count;i+=3)_triangleMaterials.Add(group.Key);
+            next = new Mesh { name = "Gobmine terrain standby", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            next.MarkDynamic();
         }
-        if(materials.Count==0)materials.Add(world!=null?world.GetVoxelMaterial():null);
-        _meshRenderer.SetSharedMaterials(materials);_meshRenderer.enabled=_triangleMaterials.Count>0;
-        _mesh.RecalculateNormals();_mesh.RecalculateBounds();_meshFilter.sharedMesh=_mesh;
-        if(_triangleMaterials.Count>0)_meshCollider.sharedMesh=_mesh;
+        next.Clear(false);
+        next.SetVertices(data.Vertices);
+        next.subMeshCount = Mathf.Max(1, data.Triangles.Count);
+        List<Material> materials = _materials;
+        materials.Clear();
+        var ids = _triangleMaterials;
+        // Do not mutate the current triangle mapping until the replacement is ready.
+        var newIds = _scratchTriangleMaterials;
+        newIds.Clear();
+        int submesh = 0;
+        foreach (var group in data.Triangles)
+        {
+            next.SetTriangles(group.Value, submesh++);
+            materials.Add(world != null ? world.GetMaterialForSurface(group.Key) : null);
+            for (int i = 0; i < group.Value.Count; i += 3) newIds.Add(group.Key);
+        }
+        if (materials.Count == 0) materials.Add(world != null ? world.GetVoxelMaterial() : null);
+        next.RecalculateNormals();
+        next.RecalculateBounds();
+
+        // No yields, no empty collider interval, no visible world-space hole.
+        Mesh old = _mesh;
+        _mesh = next;
+        _meshFilter.sharedMesh = next;
+        ids.Clear(); ids.AddRange(newIds);
+        _meshRenderer.SetSharedMaterials(materials);
+        _meshRenderer.enabled = ids.Count > 0;
+        _meshCollider.sharedMesh = ids.Count > 0 ? next : null;
+        _standbyMesh = old;
         _hasBuiltMesh = true;
         if (world != null) world.RefreshRadiationSurface(_globalOrigin, data);
     }

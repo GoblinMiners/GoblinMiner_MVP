@@ -27,6 +27,7 @@ public partial class World
     [Min(0f)] public float detachedShapeLifetime = 20f;
     [Tooltip("For temporary chunks only: remove them this many seconds after their Rigidbody comes to rest. Zero disables early removal; the maximum lifetime still applies.")]
     [Min(0f)] public float settledShapeLifetime = 5f;
+    [Tooltip("Soft monitoring threshold. Sleeping Rigidbodies are NOT made kinematic: removing support must allow them to fall again.")]
     [UnityEngine.Range(4,128)] public int maximumDynamicShapeBodies = 24;
     [UnityEngine.Range(1,16)] public int shapePacketsPerFrame = 4;
     [Min(0.05f)] public float shapePoseInterval = 0.12f;
@@ -387,6 +388,7 @@ public partial class World
             else if (ready && _streamingSuspendedShapes.Remove(pair.Key))
             {
                 TerrainShapeRecord record;
+                _budgetFrozenShapes.Remove(pair.Key);
                 piece.Body.isKinematic = false;
                 if (_shapeRecords.TryGetValue(pair.Key,out record))
                 { DebrisPool.SetLinearVelocity(piece.Body,record.Velocity); piece.Body.angularVelocity = record.AngularVelocity; }
@@ -435,30 +437,71 @@ public partial class World
         return true;
     }
 
+    private float _nextShapeBudgetWarning;
     private void FreezeOlderShapesIfNeeded()
     {
-        int active = 0;
+        // Unity already makes resting Rigidbodies inexpensive via sleep. Making
+        // them KINEMATIC to meet an object count budget was incorrect: those
+        // bodies could never start falling again after players mined underneath.
+        // Keep the counter as a soft diagnostic threshold instead. The existing
+        // temporary shape lifetimes remain the real bounding mechanism.
+        int dynamic = 0;
         foreach (var shape in _shapes.Values)
-            if (shape != null && shape.Body != null && !shape.Body.isKinematic) active++;
-        int limit = Mathf.Max(4,maximumDynamicShapeBodies);
-        if (active <= limit) return;
-        var candidates = new List<TerrainShapeChunk>(_shapes.Values);
-        candidates.Sort((a,b) => a == null ? (b == null ? 0 : 1) :
-            b == null ? -1 : a.BornAt.CompareTo(b.BornAt));
-        foreach (TerrainShapeChunk piece in candidates)
+            if (shape != null && shape.Body != null && !shape.Body.isKinematic) dynamic++;
+        if (dynamic > Mathf.Max(4,maximumDynamicShapeBodies) && Time.unscaledTime >= _nextShapeBudgetWarning)
         {
-            if (active <= limit) break;
-            if (piece == null || piece.Body == null || piece.Body.isKinematic || !piece.Body.IsSleeping()) continue;
-            TerrainShapeRecord rec;
-            if (_shapeRecords.TryGetValue(piece.ShapeId,out rec))
-            { rec.Position = piece.transform.position; rec.Rotation = piece.transform.rotation;
-                rec.Velocity = Vector3.zero; rec.AngularVelocity = Vector3.zero; }
-            DebrisPool.SetLinearVelocity(piece.Body,Vector3.zero);
-            piece.Body.angularVelocity = Vector3.zero;
-            piece.Body.isKinematic = true; // Keep sculpted shape and colliders; only freeze physics.
-            _budgetFrozenShapes.Add(piece.ShapeId);
-            active--;
+            _nextShapeBudgetWarning = Time.unscaledTime + 10f;
+            Debug.LogWarning("[Gobmine Shapes] " + dynamic + " dynamic pieces exceed the soft " +
+                "body budget. Sleeping pieces remain non-kinematic so removing a floor can wake them. " +
+                "Tune shape lifetimes or complexity if Physics cost increases.", this);
         }
+    }
+
+    /// <summary>
+    /// Only called AFTER the replacement terrain MeshCollider is published.
+    /// Sleeping rigidbodies do not reliably wake when a procedural floor loses
+    /// triangles; wake the nearby detached shapes and pooled debris explicitly.
+    /// No mesh or resource state changes here. Host/server is authoritative.
+    /// </summary>
+    private void OnTerrainColliderRebuilt(Vector3Int coord)
+    {
+        if (!isServer) return;
+        Vector3 extent = Vector3.Scale((Vector3)chunkSize, Vector3.one * voxelSize);
+        Bounds changed = new Bounds(ChunkPosition(coord) + extent * 0.5f, extent);
+        changed.Expand(Mathf.Max(0.5f, voxelSize * 4f));
+        foreach (var entry in _shapes)
+        {
+            TerrainShapeChunk piece = entry.Value;
+            if (piece == null || piece.Body == null) continue;
+            bool touches = false;
+            foreach (BoxCollider box in piece.Colliders)
+                if (box != null && box.bounds.Intersects(changed)) { touches = true; break; }
+            if (!touches) continue;
+            bool wasSleeping = piece.Body.IsSleeping();
+            bool wasKinematic = piece.Body.isKinematic;
+            _nextCollisionReadinessCheck.Remove(entry.Key);
+            _cachedCollisionReady.Remove(entry.Key);
+            _shapeSleepingSince.Remove(entry.Key);
+            _budgetFrozenShapes.Remove(entry.Key);
+            // A temporarily suspended shape must revalidate its collision
+            // neighbourhood before moving. Non-suspended bodies wake now.
+            if (piece.Body.isKinematic)
+            {
+                if (_streamingSuspendedShapes.Contains(entry.Key)) continue;
+                piece.Body.isKinematic = false; // Recover legacy budget-frozen bodies.
+            }
+            if (wasSleeping || wasKinematic) piece.Body.WakeUp();
+        }
+        // Detached ORE chunks are just as real as detached terrain. A
+        // sleeping ore boulder must drop again if its resting floor is cut.
+        foreach (MineableOreChunk ore in _oreViews.Values)
+        {
+            if (ore == null || !ore.Detached || ore.Body == null || ore.Body.isKinematic ||
+                !ore.Body.IsSleeping()) continue;
+            Collider collider = ore.GetComponent<Collider>();
+            if (collider != null && collider.bounds.Intersects(changed)) ore.Body.WakeUp();
+        }
+        if (DebrisPool.Instance != null) DebrisPool.Instance.WakeDebrisNear(changed);
     }
 
     private void RemoveFallingShape(int id)
@@ -749,5 +792,6 @@ public partial class World
         _budgetFrozenShapes.Clear(); _streamingSuspendedShapes.Clear();
         _buildingShape = null; _buildingMesh = null; _loadedShapeRecords = null;
         _loadedShapesActivated = false; _nextShapeId = 1; _nextShapePose = 0f;
+        _nextShapeBudgetWarning = 0f;
     }
 }

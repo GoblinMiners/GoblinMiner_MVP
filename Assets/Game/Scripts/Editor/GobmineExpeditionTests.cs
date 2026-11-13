@@ -22,8 +22,9 @@ public static class GobmineExpeditionTests
         Test("Depth reference is stable",()=>{Near(GobmineExpeditionRules.Depth(0,20),0);Near(GobmineExpeditionRules.Depth(8,-32),40);});
         Test("Normal jump is safe",()=>Near(GobmineExpeditionRules.FallDamage(1.1f,-24,25,3,12,100),0));
         Test("Safe fall threshold",()=>Near(GobmineExpeditionRules.FallDamage(3,-24,25,3,12,100),0));
-        Test("Six metre hard landing",()=>Near(GobmineExpeditionRules.FallDamage(6,-24,25,3,12,100),100f/3f));
-        Test("Twelve metre lethal landing",()=>Near(GobmineExpeditionRules.FallDamage(12,-24,25,3,12,100),100));
+        Test("Six metre landing is survivable",()=>Check(GobmineExpeditionRules.FallDamage(6,-24,25,3,12,100)<25f,"Routine fall is too punishing."));
+        Test("Deep fall reaches lethal threshold",()=>Near(GobmineExpeditionRules.FallDamage(34,-24,25,5.5f,34,100),100));
+        Test("Twelve metre expedition fall is survivable",()=>Check(GobmineExpeditionRules.FallDamage(12,-24,25,5.5f,34,100)<20,"12m must not be an instant death."));
         Test("Terminal speed bounds energy",()=>Check(GobmineExpeditionRules.FallDamage(100,-24,10,3,12,100)==0,"Low terminal speed should cap the energy below the safe threshold."));
         Test("Water cushioning depends on depth",()=>{Near(GobmineExpeditionRules.WaterImpactMultiplier(0.25f,2.5f),0.9f);Near(GobmineExpeditionRules.WaterImpactMultiplier(2.5f,2.5f),0);});
         Test("Fall reported once",()=>{var f=new GobmineFallTracker();f.Reset(10);float d;Check(!f.Sample(9,false,false,0.1f,out d),"Air is not landing.");Check(f.Sample(0,true,false,0.1f,out d),"Landing missing.");Near(d,10);Check(!f.Sample(0,true,false,0.1f,out d),"Duplicate landing.");});
