@@ -4,12 +4,14 @@ using System.Collections.Generic;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using TMPro;
-using Inventory;
+using UnityEngine.Serialization;
+
 
 
 public class InventoryView : MonoBehaviour
 {
-	[SerializeField] private PlayerInventory playerInventory;
+	[Tooltip("Optional. A component on the player that implements IInventoryOwner (the sandbox PlayerInventory). Leave empty when the owner binds at runtime, as the networked game player does.")]
+	[SerializeField, FormerlySerializedAs("playerInventory")] private MonoBehaviour playerInventorySource;
 	[SerializeField] private SlotView slotPrefab;
 	[SerializeField] private Transform bagSlotParent;
 	[SerializeField] private Transform hotbarSlotParent;
@@ -36,15 +38,33 @@ public class InventoryView : MonoBehaviour
 	private Coroutine flashRoutine;
 	private InventoryContainer storage;
 	private List<SlotView> storageViews = new List<SlotView>();
+	private IInventoryOwner playerInventory;
 
 	private void Awake()
 	{
-		if (playerInventory == null)
+		dragIcon.raycastTarget = false;
+		dragIcon.gameObject.SetActive(false);
+
+		if (storagePanel != null)
+			storagePanel.SetActive(false);
+
+		if (playerInventorySource == null) return; // Bound at runtime with Bind().
+
+		IInventoryOwner owner = playerInventorySource as IInventoryOwner;
+		if (owner == null)
 		{
-			Debug.LogError("[InventoryView] Player Inventory is not assigned.", this);
+			Debug.LogError("[InventoryView] Player Inventory Source does not implement IInventoryOwner.", this);
 			enabled = false;
 			return;
 		}
+		Bind(owner);
+	}
+
+	/// <summary>Connects this view to an inventory. Call once; the networked player calls it after spawning.</summary>
+	public void Bind(IInventoryOwner owner)
+	{
+		if (owner == null || playerInventory != null) return;
+		playerInventory = owner;
 
 		bag = playerInventory.Bag;
 		hotbar = playerInventory.Hotbar;
@@ -73,9 +93,6 @@ public class InventoryView : MonoBehaviour
 		playerInventory.StorageOpened += OnStorageOpened;
 		playerInventory.StorageClosed += OnStorageClosed;
 
-		if (storagePanel != null)
-			storagePanel.SetActive(false);
-
 		if (sortControls != null)
 			sortControls.SortRequested += OnSortRequested;
 
@@ -84,9 +101,6 @@ public class InventoryView : MonoBehaviour
 
 		if (window != null)
 			window.OpenStateChanged += OnWindowOpenStateChanged;
-
-		dragIcon.raycastTarget = false;
-		dragIcon.gameObject.SetActive(false);
 
 		RefreshAll();
 	}
@@ -288,7 +302,7 @@ public class InventoryView : MonoBehaviour
 
 	private void OnSlotDragEnded(SlotView view)
 	{
-		if (dragFromContainer != null && !window.IsPointerOverPanel())
+		if (dragFromContainer != null && playerInventory != null && window != null && !window.IsPointerOverPanel())
 			playerInventory.DropFromSlot(dragFromContainer, dragFromIndex, dragAmount);
 
 		CancelDrag();
@@ -304,7 +318,7 @@ public class InventoryView : MonoBehaviour
 
 	private void OnSlotDroppedOn(SlotView view)
 	{
-		if (dragFromContainer == null) return;
+		if (dragFromContainer == null || playerInventory == null) return;
 
 		playerInventory.MoveItem(dragFromContainer, dragFromIndex,
 		ContainerOf(view), IndexOf(view), dragAmount);
@@ -319,7 +333,8 @@ public class InventoryView : MonoBehaviour
 
 		CancelDrag();
 		Deselect();
-		playerInventory.CloseStorage();
+		if (playerInventory != null)
+			playerInventory.CloseStorage();
 	}
 
 	private void OnSlotClicked(SlotView view, PointerEventData.InputButton button)
@@ -363,13 +378,15 @@ public class InventoryView : MonoBehaviour
 	private void OnSortRequested(SortOrder order)
 	{
 		Deselect();
-		playerInventory.SortBag(order);
+		if (playerInventory != null)
+			playerInventory.SortBag(order);
 	}
 
 	private void OnStorageSortRequested(SortOrder order)
 	{
 		Deselect();
-		playerInventory.SortStorage(order);
+		if (playerInventory != null)
+			playerInventory.SortStorage(order);
 	}
 	private void ShowSelected()
 	{

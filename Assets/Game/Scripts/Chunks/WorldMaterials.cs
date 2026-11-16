@@ -14,6 +14,11 @@ public partial class World
     [Min(0)] public float materialAutosaveSeconds=60f;
     [Tooltip("Use a separate filename for test worlds. File only, no directories.")]
     public string materialSaveFileName="world_materials_v1.dat";
+    [Header("Ground items")]
+    [Tooltip("Seconds an uncollected resource or dropped item stays on the ground before it disappears. 0 keeps it forever.")]
+    [Min(0)] public float groundItemLifetimeSeconds=300f;
+    [Tooltip("Seconds before anyone else can pick up an item a player dropped. The dropper must first walk out of pickup reach.")]
+    [Min(0)] public float droppedItemPickupDelaySeconds=0.5f;
     public bool importLegacyDensitySave=true;
     private string MaterialSavePath
     {
@@ -32,6 +37,13 @@ public partial class World
     private readonly Dictionary<long,OrePickup> _resourceViews=new Dictionary<long,OrePickup>();
     private readonly HashSet<PlayerInventory> _inventories=new HashSet<PlayerInventory>();
     private float _nextResourceRefresh,_nextAutosave;
+    // Ground-item lifetimes and who dropped what. Runtime only; a loaded pile starts a fresh lifetime.
+    private readonly Dictionary<long,float> _pileSeenAt=new Dictionary<long,float>();
+    private readonly Dictionary<long,float> _pileOpenToAllAt=new Dictionary<long,float>();
+    private readonly Dictionary<long,PlayerInventory> _pileDroppedBy=new Dictionary<long,PlayerInventory>();
+    private readonly Dictionary<int,double> _expiredGroundUnits=new Dictionary<int,double>();
+    /// <summary>Server: units of each item that expired on the ground this session, by item ID. Kept for a future reward chest.</summary>
+    public IReadOnlyDictionary<int,double> ExpiredGroundUnits=>_expiredGroundUnits;
     private bool _materialWorldValid;
     private string _worldRulesSignature;
 
@@ -49,6 +61,7 @@ public partial class World
         try
         {
             ResolveMaterialAssets();
+            SharedStorage.ClearPendingLoads();
             _worldRulesSignature=ComputeWorldRulesSignature();
             MaterialWorldPersistence.Snapshot saved; string error;
             bool loaded=MaterialWorldPersistence.TryLoad(MaterialSavePath,out saved,out error);
@@ -69,16 +82,24 @@ public partial class World
                 foreach(var p in saved.Density) _terrain.Set(p.Position,p.Value);
                 foreach(var p in saved.Resources)
                 {
+                    if(p.MaterialId==0)
+                    {
+                        if(GobmineItems.Find(p.ItemId)==null)
+                            throw new InvalidOperationException("Saved dropped item "+p.ItemId+" is not in the item database.");
+                        continue;
+                    }
                     var definition=materialCatalog.Get(p.MaterialId);
-                    if(definition==null || definition.inventoryItem==null || definition.inventoryItem.mineralID!=p.ItemId)
+                    if(definition==null || definition.item==null || definition.item.itemID!=p.ItemId)
                         throw new InvalidOperationException("Saved resource item/material mapping is invalid.");
                 }
                 _resourcePiles.Import(saved.Resources);
+                foreach(var storage in saved.Storages) SharedStorage.LoadWhenReady(storage.Key,storage.Slots);
                 LoadFallingShapeRecords(saved.Shapes);
                 LoadOreChunkRecords(saved.OreChunks);
             }
             else if(importLegacyDensitySave && !ExpeditionEnabled) _terrain.ImportLegacyChunks(WorldSaver.LoadWorld(chunkSize)); // Never import legacy densities into a different cavern generator.
             InitializeExpeditionFluids();
+            if (!loaded) ConvertSceneWorldItems();
             if (loaded) { _fluids?.Import(saved.Fluids); expeditionUnlocks = saved.ExpeditionUnlocks; }
             else expeditionUnlocks = 0;
             _materialWorldValid=true;
@@ -102,6 +123,7 @@ public partial class World
             if(pair.Value!=null) { if(NetworkServer.active)NetworkServer.Destroy(pair.Value.gameObject);else Destroy(pair.Value.gameObject); }
         _resourceViews.Clear();_inventories.Clear();_resourcePiles=null;_materials=null;
         _materialWorldValid=false;_worldRulesSignature=null;_nextResourceRefresh=0f;_materialCache.Clear();_miningRewardBatch.Clear();
+        _pileSeenAt.Clear();_pileOpenToAllAt.Clear();_pileDroppedBy.Clear();_expiredGroundUnits.Clear();
     }
     public int GetSolidMaterialId(Vector3Int cell)
     {
@@ -122,7 +144,7 @@ public partial class World
         return TerrainQuery.SampleDensity(worldPosition/voxelSize,_densityReader)>=0;
     }
     public int GetMaterialAt(Vector3 worldPosition)=>IsAirAt(worldPosition)?TerrainMaterialCatalog.Air:GetSolidMaterialId(Vector3Int.FloorToInt(worldPosition/voxelSize));
-    public MineralData GetInventoryItem(int itemId)=>materialCatalog==null?null:materialCatalog.GetItem(itemId);
+    public ItemSO GetInventoryItem(int itemId)=>materialCatalog==null?null:materialCatalog.GetItem(itemId);
     public Material GetMaterialForSurface(int id)=>materialCatalog==null?GetVoxelMaterial():materialCatalog.Surface(id);
 
     private float HardnessAtSample(Vector3Int p)
@@ -153,7 +175,15 @@ public partial class World
             {
                 NotifyMinedExposure(miner, reward.MaterialId, reward.Units);
                 string reason;
-                if (CanCollectExpeditionMaterial(miner, reward.MaterialId, out reason) && miner.ServerAddUnits(reward.ItemId, reward.Units)) continue;
+                if (CanCollectExpeditionMaterial(miner, reward.MaterialId, out reason))
+                {
+                    double overflow = miner.ServerAddUnits(reward.ItemId, reward.Units);
+                    if (overflow <= 1e-9d) continue;
+                    // Bag full: what does not fit stays on the ground where it was cut.
+                    NotifyEquipmentMessage(miner, "Bag full: the rest stays on the ground for a while.");
+                    _resourcePiles.Add(reward.MaterialId, reward.ItemId, overflow, reward.Moment / (float)reward.Units);
+                    continue;
+                }
                 NotifyEquipmentMessage(miner, reason);
             }
             _resourcePiles.Add(reward.MaterialId, reward.ItemId, reward.Units, reward.Moment / (float)reward.Units);
@@ -167,35 +197,115 @@ public partial class World
         if (!collapse || !preserveDisconnectedShapes) QueueDebris(cell,centre,cubicMetres,id,collapse);
         if (collapse && !preserveDisconnectedShapes) QueueCollapseHazard(cell,centre,cubicMetres);
         // Default: collapses become genuine shaped rigidbodies, not invisible hazards.
-        if(d==null || d.inventoryItem==null || d.itemsPerCubicMetre<=0)return;
+        if(d==null || d.item==null || d.itemsPerCubicMetre<=0)return;
         double units=cubicMetres*d.itemsPerCubicMetre;
         if(!collapse && miner!=null && miner.isServer)
         {
             BatchedMiningReward reward;
             _miningRewardBatch.TryGetValue(id, out reward);
-            reward.MaterialId=id; reward.ItemId=d.inventoryItem.mineralID;
+            reward.MaterialId=id; reward.ItemId=d.item.itemID;
             reward.Units+=units; reward.Moment+=centre*(float)units;
             _miningRewardBatch[id]=reward;
             return;
         }
-        _resourcePiles.Add(id,d.inventoryItem.mineralID,units,centre);
+        _resourcePiles.Add(id,d.item.itemID,units,centre);
         // A disconnected miner does not cause queued edits to destroy their rewards.
     }
     public void RegisterInventory(PlayerInventory inventory) {if(inventory!=null)_inventories.Add(inventory);}
     public void PreserveDepartingInventory(PlayerInventory inventory)
     {
         if(inventory==null || !isServer || _resourcePiles==null || !_materialWorldValid)return;
-        foreach(var pair in inventory.Quantities)
-        {
-            int material=MaterialForItem(pair.Key);
-            if(material>0 && pair.Value>0)_resourcePiles.Add(material,pair.Key,pair.Value,inventory.transform.position+Vector3.up*0.4f);
-        }
-        inventory.Quantities.Clear();_inventories.Remove(inventory);
+        foreach(var pair in inventory.ServerTakeAll())
+            if(pair.Value>0)_resourcePiles.Add(MaterialForItem(pair.Key),pair.Key,pair.Value,inventory.transform.position+Vector3.up*0.4f);
+        _inventories.Remove(inventory);
     }
+    /// <summary>The terrain material that yields this item, or 0 for items that are not terrain resources.</summary>
     private int MaterialForItem(int item)
     {
-        foreach(var d in materialCatalog.definitions)if(d.inventoryItem!=null && d.inventoryItem.mineralID==item)return d.materialId;
+        foreach(var d in materialCatalog.definitions)if(d!=null && d.item!=null && d.item.itemID==item)return d.materialId;
         return 0;
+    }
+
+    /// <summary>
+    /// Server: puts items a player dropped on the ground in front of them as a pickup.
+    /// The dropper cannot pick it straight back up until they have walked out of reach.
+    /// </summary>
+    [Server]
+    public bool ServerDropItem(PlayerInventory dropper,ItemSO item,int count)
+    {
+        if(!isServer || _resourcePiles==null || !_materialWorldValid || dropper==null || item==null || item.itemID<=0 || count<=0)return false;
+        Vector3 forward=Vector3.ProjectOnPlane(dropper.transform.forward,Vector3.up);
+        if(forward.sqrMagnitude<0.01f)forward=Vector3.forward;
+        Vector3 position=dropper.transform.position+Vector3.up*0.8f+forward.normalized*dropper.DropDistance;
+        if(!IsAirAt(position))position=dropper.transform.position+Vector3.up*0.8f; // Never drop into a wall.
+        long id=_resourcePiles.Add(MaterialForItem(item.itemID),item.itemID,count,position);
+        _pileDroppedBy[id]=dropper;
+        _pileOpenToAllAt[id]=Time.unscaledTime+droppedItemPickupDelaySeconds;
+        return true;
+    }
+
+    /// <summary>Scene-placed test items (WorldItem) become network pickups in a new world.</summary>
+    private void ConvertSceneWorldItems()
+    {
+        foreach(WorldItem placed in FindObjectsByType<WorldItem>(FindObjectsInactive.Exclude,FindObjectsSortMode.None))
+        {
+            if(placed.Item==null || placed.Count<=0)continue;
+            if(placed.Item.itemID<=0)
+            { Debug.LogWarning("[Items] "+placed.name+" holds "+placed.Item.name+", which has no item ID. Run Tools > Gobmine > Items > Set Up Items.",placed);continue; }
+            _resourcePiles.Add(MaterialForItem(placed.Item.itemID),placed.Item.itemID,placed.Count,placed.transform.position+Vector3.up*0.3f);
+        }
+    }
+
+    /// <summary>Clients and server: scene-placed test items are replaced by network pickups.</summary>
+    private static void RemoveSceneWorldItems()
+    {
+        foreach(WorldItem placed in FindObjectsByType<WorldItem>(FindObjectsInactive.Exclude,FindObjectsSortMode.None))
+            Destroy(placed.gameObject);
+    }
+
+    private void ExpireGroundItems()
+    {
+        if(groundItemLifetimeSeconds<=0f)return;
+        float now=Time.unscaledTime;
+        List<long> expired=null;
+        foreach(var pile in _resourcePiles.All)
+        {
+            // Measured from when the pile first appeared, so changing the lifetime applies at once.
+            float seenAt;
+            if(!_pileSeenAt.TryGetValue(pile.Id,out seenAt))_pileSeenAt[pile.Id]=now;
+            else if(now-seenAt>=groundItemLifetimeSeconds)(expired??(expired=new List<long>())).Add(pile.Id);
+        }
+        if(expired==null)return;
+        foreach(long id in expired)
+        {
+            ResourcePileStore.Pile pile;
+            if(!_resourcePiles.Remove(id,out pile))continue;
+            double previous;_expiredGroundUnits.TryGetValue(pile.ItemId,out previous);_expiredGroundUnits[pile.ItemId]=previous+pile.Units;
+            ForgetPile(id);
+        }
+    }
+
+    private void ForgetPile(long id)
+    {
+        _pileSeenAt.Remove(id);_pileOpenToAllAt.Remove(id);_pileDroppedBy.Remove(id);
+        OrePickup view;
+        if(_resourceViews.TryGetValue(id,out view))
+        {
+            if(view!=null)NetworkServer.Destroy(view.gameObject);
+            _resourceViews.Remove(id);
+        }
+    }
+
+    /// <summary>A freshly dropped item waits briefly, and its dropper must walk away from it first.</summary>
+    private bool PickupBlockedFor(long id,PlayerInventory inventory,Vector3 position)
+    {
+        float openAt;
+        if(_pileOpenToAllAt.TryGetValue(id,out openAt) && Time.unscaledTime<openAt)return true;
+        PlayerInventory dropper;
+        if(!_pileDroppedBy.TryGetValue(id,out dropper))return false;
+        if(dropper==null){_pileDroppedBy.Remove(id);return false;}
+        if(!ResourcePickupRules.WithinReach(dropper.transform.position,position,resourcePickupReach+0.5f)){_pileDroppedBy.Remove(id);return false;}
+        return dropper==inventory;
     }
     public void UpdateResourcePosition(long id,Vector3 position)
     {
@@ -237,15 +347,20 @@ public partial class World
             }
             return false;
         }
-        if (!inventory.ServerAddUnits(pile.ItemId, pile.Units)) return false;
+        if (PickupBlockedFor(id, inventory, pile.Position)) return false;
+        double left = inventory.ServerAddUnits(pile.ItemId, pile.Units);
+        if (left >= pile.Units - 1e-9d) return false; // No room.
         // Main-thread transaction: successful credit followed by removal, no await/yield.
         // Subsequent players/trigger callbacks cannot collect this record a second time.
-        _resourcePiles.Remove(id, out pile);
-        if (_resourceViews.TryGetValue(id, out view))
+        if (left > 1e-9d)
         {
-            if (view != null) NetworkServer.Destroy(view.gameObject);
-            _resourceViews.Remove(id);
+            // Partial pickup: the rest stays on the ground.
+            _resourcePiles.SetUnits(id, left);
+            if (_resourceViews.TryGetValue(id, out view) && view != null && _resourcePiles.TryGet(id, out pile)) view.Refresh(pile);
+            return true;
         }
+        _resourcePiles.Remove(id, out pile);
+        ForgetPile(id);
         return true;
     }
 
@@ -257,7 +372,7 @@ public partial class World
         GobminePlayerHealth health = inventory.GetComponent<GobminePlayerHealth>();
         if (health != null && health.IsDead) return ResourcePickupAccess.PlayerDown;
         string equipmentReason;
-        if (!CanCollectExpeditionMaterial(inventory, pile.MaterialId, out equipmentReason)) return ResourcePickupAccess.NeedsEquipment;
+        if (pile.MaterialId != 0 && !CanCollectExpeditionMaterial(inventory, pile.MaterialId, out equipmentReason)) return ResourcePickupAccess.NeedsEquipment;
         if (!ResourcePickupRules.WithinReach(inventory.transform.position, pile.Position, resourcePickupReach))
             return ResourcePickupAccess.TooFar;
         // Raycasts alone cannot determine whether an endpoint is inside solid terrain.
@@ -339,6 +454,7 @@ public partial class World
         }
         if(Time.unscaledTime<_nextResourceRefresh)return;
         _nextResourceRefresh=Time.unscaledTime+0.5f;
+        ExpireGroundItems();
         var nearest=new List<ResourcePileStore.Pile>();
         foreach(var p in _resourcePiles.All)
             if(_activeChunks.ContainsKey(GetChunkCoordFromPosition(p.Position)) && !_dirtyMeshes.Contains(GetChunkCoordFromPosition(p.Position)) && NearestPlayerDistance(p.Position)<40f*40f)nearest.Add(p);
@@ -391,11 +507,16 @@ public partial class World
             foreach(var inventory in _inventories)
             {
                 if(inventory==null || !inventory.isServer)continue;
-                foreach(var p in inventory.Quantities)
-                {
-                    int material=MaterialForItem(p.Key);
-                    if(material>0 && p.Value>0)s.Resources.Add(new ResourcePileStore.Pile {MaterialId=material,ItemId=p.Key,Units=p.Value,Position=inventory.transform.position+Vector3.up*0.4f});
-                }
+                foreach(var p in inventory.Totals)
+                    if(p.Value>0)s.Resources.Add(new ResourcePileStore.Pile {MaterialId=MaterialForItem(p.Key),ItemId=p.Key,Units=p.Value,Position=inventory.transform.position+Vector3.up*0.4f});
+            }
+            var storageKeys=new HashSet<string>();
+            foreach(var storage in SharedStorage.All)
+            {
+                if(storage==null || !storage.isServer)continue;
+                if(!storageKeys.Add(storage.StorageKey))
+                { Debug.LogError("[Gobmine Material Save] Two storage boxes share the key '"+storage.StorageKey+"'; only the first is saved. Give each box its own Storage Key.",storage);continue; }
+                s.Storages.Add(new MaterialWorldPersistence.StorageRecord {Key=storage.StorageKey,Slots=storage.Snapshot()});
             }
             s.ExpeditionState = ExpeditionEnabled;
             s.ExpeditionUnlocks = expeditionUnlocks;

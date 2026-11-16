@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 99d3b815911c7604ba671dd4d1c3d974, type: 3}
   m_Name: Pickaxe
   m_EditorClassIdentifier: Assembly-CSharp::ItemSO
+  itemID: 104
   itemName: Pickaxe
   itemType: 4
   icon: {fileID: 8959118705387878318, guid: 1e3a2880b66a6924c8426b6b16723865, type: 3}

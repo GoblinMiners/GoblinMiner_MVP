@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2707362abf6300e46a22a2caf7769db4, type: 3}
+  m_Name: ItemDatabase
+  m_EditorClassIdentifier: GoblinMiner.Items::ItemDatabase
+  items:
+  - {fileID: 11400000, guid: 7d9f943f86cd21b42b2050026e862bd0, type: 2}
+  - {fileID: 11400000, guid: cb94501d7fa9c0f498d566bf3ac437b8, type: 2}
+  - {fileID: 11400000, guid: a7af94b1b635d914495e6cad4779bbff, type: 2}
+  - {fileID: 11400000, guid: 926fd8fa3a23f6e4a8559f672dd383cb, type: 2}
+  - {fileID: 11400000, guid: 330ccc36bd3abd446bcf55e98ada0cc5, type: 2}
+  - {fileID: 11400000, guid: f04cfab6db2a9474ea608e7b47bd9553, type: 2}
+  - {fileID: 11400000, guid: 77fa487e42dbf3941ba471793fbbc20f, type: 2}
+  - {fileID: 11400000, guid: e04dc2404570db1459b361a6fb69c8c3, type: 2}
+  - {fileID: 11400000, guid: c3e82c7134f4a9d43907ea22943f681c, type: 2}
+  - {fileID: 11400000, guid: 9e115583a1c659f48921edc847abae1c, type: 2}
+  - {fileID: 11400000, guid: 73b185fd10aba9f41ace1395d97b4b30, type: 2}

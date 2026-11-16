@@ -226,7 +226,7 @@ public partial class World
         if (!immediate && !HasOreExposure(centre,c.Radius))
         { _oreDormant.Add(c.Id); return null; }
         TerrainMaterialDefinition definition=materialCatalog.Get(c.MaterialId);
-        if (definition==null || definition.inventoryItem==null || definition.itemsPerCubicMetre<=0d)
+        if (definition==null || definition.item==null || definition.itemsPerCubicMetre<=0d)
         { _oreRejected.Add(c.Id); return null; }
         double volume=(4d/3d)*Math.PI*c.Radius*c.Radius*c.Radius*0.70d;
         double units=volume*definition.itemsPerCubicMetre;
@@ -352,14 +352,16 @@ public partial class World
         if (!_oreRecords.TryGetValue(target.OreId,out record) || record.RemainingUnits<=0d ||
             !_oreViews.ContainsKey(record.Id) || !IsOreNearPlayer(record.Position,oreChunkStreamDistance))return false;
         TerrainMaterialDefinition ore=materialCatalog.Get(record.MaterialId);
-        if (ore==null || ore.inventoryItem==null)return false;
+        if (ore==null || ore.item==null)return false;
         string reason;
         if (!CanCollectExpeditionMaterial(miner,record.MaterialId,out reason))
         { NotifyEquipmentMessage(miner,reason);return false; }
         // This yields proportional resources per hit, with no per-click integer rounding.
         double extracted=Math.Min(record.RemainingUnits,
             Math.Max(0.001d,amount/Math.Max(0.05f,ore.hardness)*ore.itemsPerCubicMetre*0.2d));
-        if (!miner.ServerAddUnits(ore.inventoryItem.mineralID,extracted))return false;
+        // Only take from the ore what the bag can hold; a full bag leaves the ore in place.
+        extracted-=miner.ServerAddUnits(ore.item.itemID,extracted);
+        if (extracted<=1e-9d) { NotifyEquipmentMessage(miner,"Bag full: make room to keep mining "+ore.displayName+".");return false; }
         NotifyMinedExposure(miner,record.MaterialId,extracted);
         if (record.Detached)
         { record.Position=target.transform.position;record.Rotation=target.transform.rotation; }

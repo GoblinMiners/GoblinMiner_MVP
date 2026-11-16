@@ -14,7 +14,7 @@ public sealed class TerrainMaterialCatalog : ScriptableObject
     [Tooltip("Later entries take priority when deposits overlap. Put rare ores last.")]
     public TerrainMaterialDefinition[] definitions = new TerrainMaterialDefinition[0];
     private Dictionary<int, TerrainMaterialDefinition> _byId;
-    private Dictionary<int, MineralData> _items;
+    private Dictionary<int, ItemSO> _items;
 
     private void OnEnable() { _byId = null; _items = null; }
     private void OnValidate() { _byId = null; _items = null; }
@@ -22,7 +22,7 @@ public sealed class TerrainMaterialCatalog : ScriptableObject
     public void ValidateOrThrow()
     {
         _byId = new Dictionary<int, TerrainMaterialDefinition>();
-        _items = new Dictionary<int, MineralData>();
+        _items = new Dictionary<int, ItemSO>();
         if (definitions == null || definitions.Length == 0) throw new InvalidOperationException("Material catalogue is empty.");
         foreach (TerrainMaterialDefinition d in definitions)
         {
@@ -32,16 +32,18 @@ public sealed class TerrainMaterialCatalog : ScriptableObject
             if (float.IsNaN(d.hardness) || float.IsInfinity(d.hardness) || d.hardness < 0.05f ||
                 double.IsNaN(d.itemsPerCubicMetre) || double.IsInfinity(d.itemsPerCubicMetre) || d.itemsPerCubicMetre < 0)
                 throw new InvalidOperationException(d.name + " has invalid hardness or yield.");
-            if (d.itemsPerCubicMetre > 0 && (d.inventoryItem == null || d.inventoryItem.mineralID <= 0))
+            if (d.item == null && d.inventoryItem != null)
+                throw new InvalidOperationException(d.name + " still uses an old mineral asset. Run Tools > Gobmine > Items > Set Up Items.");
+            if (d.itemsPerCubicMetre > 0 && (d.item == null || d.item.itemID <= 0))
                 throw new InvalidOperationException(d.name + " needs an inventory item with a positive ID.");
-            if (d.inventoryItem != null)
+            if (d.item != null)
             {
-                MineralData existing;
-                if (_items.TryGetValue(d.inventoryItem.mineralID, out existing) && existing != d.inventoryItem)
+                ItemSO existing;
+                if (_items.TryGetValue(d.item.itemID, out existing) && existing != d.item)
                     throw new InvalidOperationException("Different inventory assets share an item ID.");
-                _items[d.inventoryItem.mineralID] = d.inventoryItem;
+                _items[d.item.itemID] = d.item;
             }
-            if (d.spawnMineableChunks && (d.materialId==baseStoneId || !d.generateDeposits || d.inventoryItem==null || d.itemsPerCubicMetre<=0d))
+            if (d.spawnMineableChunks && (d.materialId==baseStoneId || !d.generateDeposits || d.item==null || d.itemsPerCubicMetre<=0d))
                 throw new InvalidOperationException(d.name+" cannot spawn mineable ore chunks without a deposit rule and positive inventory yield.");
             if (d.generateDeposits && (d.depositGridSizeInCells < 4 || d.depositGridSizeInCells > 1024 || d.minimumRadiusInCells < 1 ||
                 d.maximumRadiusInCells < d.minimumRadiusInCells || d.maximumRadiusInCells > d.depositGridSizeInCells / 2 ||
@@ -62,9 +64,9 @@ public sealed class TerrainMaterialCatalog : ScriptableObject
         EnsureIndex(); TerrainMaterialDefinition d;
         return _byId.TryGetValue(id, out d) ? d : null;
     }
-    public MineralData GetItem(int id)
+    public ItemSO GetItem(int id)
     {
-        EnsureIndex(); MineralData d;
+        EnsureIndex(); ItemSO d;
         return _items.TryGetValue(id, out d) ? d : null;
     }
     public Material Surface(int id) { var d = Get(id); return d == null ? null : d.surfaceMaterial; }
@@ -78,7 +80,7 @@ public sealed class TerrainMaterialCatalog : ScriptableObject
         s.Append(GeneratorVersion).Append('|').Append(baseStoneId);
         foreach (var d in definitions)
         {
-            s.Append('|').Append(d.materialId).Append(':').Append(d.inventoryItem == null ? 0 : d.inventoryItem.mineralID)
+            s.Append('|').Append(d.materialId).Append(':').Append(d.item == null ? 0 : d.item.itemID)
              .Append(':').Append(d.hardness.ToString("R", CultureInfo.InvariantCulture))
              .Append(':').Append(d.itemsPerCubicMetre.ToString("R", CultureInfo.InvariantCulture))
              .Append(':').Append(d.generateDeposits ? 1 : 0).Append(':').Append(d.depositGridSizeInCells)

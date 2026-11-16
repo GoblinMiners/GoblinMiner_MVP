@@ -128,7 +128,7 @@ public static class GobmineOreChunkSetup
             foreach (var d in world.MaterialCatalog.definitions)
                 if (d!=null && d.spawnMineableChunks)
                 {
-                    if (d.materialId==world.MaterialCatalog.baseStoneId || !d.generateDeposits || d.inventoryItem==null || d.itemsPerCubicMetre<=0)
+                    if (d.materialId==world.MaterialCatalog.baseStoneId || !d.generateDeposits || d.item==null || d.itemsPerCubicMetre<=0)
                         throw new InvalidOperationException("Invalid ore chunk definition: "+d.name);
                     count++;
                 }

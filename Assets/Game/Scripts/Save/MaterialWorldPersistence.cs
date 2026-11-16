@@ -11,8 +11,9 @@ using UnityEngine;
 public static class MaterialWorldPersistence
 {
     private const string Magic = "GMBMAT01";
-    public const int FormatVersion = 4;
+    public const int FormatVersion = 5;
     public struct DensityPoint { public Vector3Int Position; public float Value; }
+    public sealed class StorageRecord { public string Key; public List<ItemStack> Slots = new List<ItemStack>(); }
     public sealed class Snapshot
     {
         public int Seed;
@@ -26,6 +27,7 @@ public static class MaterialWorldPersistence
         public List<GobmineFluidPoint> Fluids = new List<GobmineFluidPoint>();
         public List<TerrainShapeRecord> Shapes = new List<TerrainShapeRecord>();
         public List<MineableOreRecord> OreChunks = new List<MineableOreRecord>();
+        public List<StorageRecord> Storages = new List<StorageRecord>();
     }
     public static string DefaultPath => Path.Combine(Application.persistentDataPath,"world_materials_v1.dat");
 
@@ -113,7 +115,8 @@ public static class MaterialWorldPersistence
         {
             using(var w=new BinaryWriter(buffer,Encoding.UTF8,true))
             {
-                int format = s.OreChunks.Count>0 ? FormatVersion : s.Shapes.Count>0 ? 3 :
+                bool droppedItems = s.Resources.Exists(p => p.MaterialId == 0);
+                int format = s.Storages.Count>0 || droppedItems ? 5 : s.OreChunks.Count>0 ? 4 : s.Shapes.Count>0 ? 3 :
                     s.ExpeditionState || s.ExpeditionUnlocks != 0 || s.Fluids.Count > 0 ? 2 : 1;
                 w.Write(Encoding.ASCII.GetBytes(Magic)); w.Write(format); w.Write(TerrainMaterialCatalog.GeneratorVersion);
                 w.Write(s.Seed); WritePosition(w,s.ChunkSize); w.Write(s.VoxelSize); w.Write(s.RulesSignature ?? "");
@@ -153,6 +156,15 @@ public static class MaterialWorldPersistence
                         w.Write(ore.TotalUnits);w.Write(ore.RemainingUnits);w.Write(ore.Detached);
                     }
                 }
+                if (format >= 5)
+                {
+                    w.Write(s.Storages.Count);
+                    foreach (StorageRecord storage in s.Storages)
+                    {
+                        w.Write(storage.Key ?? ""); w.Write(storage.Slots.Count);
+                        foreach (ItemStack slot in storage.Slots) { w.Write(slot.ItemId); w.Write(slot.Count); }
+                    }
+                }
             }
             return buffer.ToArray();
         }
@@ -189,7 +201,8 @@ public static class MaterialWorldPersistence
             {
                 var p=new ResourcePileStore.Pile {MaterialId=r.ReadInt32(),ItemId=r.ReadInt32(),Units=r.ReadDouble(),
                     Position=new Vector3(r.ReadSingle(),r.ReadSingle(),r.ReadSingle())};
-                if(p.MaterialId<=0 || p.ItemId<=0 || p.Units<=0 || double.IsNaN(p.Units) || double.IsInfinity(p.Units) ||
+                // MaterialId 0 (format 5) is a dropped item that is not a terrain resource.
+                if(p.MaterialId<0 || (p.MaterialId==0 && format<5) || p.ItemId<=0 || p.Units<=0 || double.IsNaN(p.Units) || double.IsInfinity(p.Units) ||
                     !Finite(p.Position.x)||!Finite(p.Position.y)||!Finite(p.Position.z)) throw new InvalidDataException("Invalid resource record.");
                 s.Resources.Add(p);
             }
@@ -265,6 +278,24 @@ public static class MaterialWorldPersistence
                         ore.Id != OreChunkGenerator.StableId(ore.GeneratorCell,ore.MaterialId))
                         throw new InvalidDataException("Invalid ore-chunk state.");
                     s.OreChunks.Add(ore);
+                }
+            }
+            if(format>=5)
+            {
+                count=r.ReadInt32();CheckCount(count,5,stream);
+                var keys=new HashSet<string>();
+                for(int i=0;i<count;i++)
+                {
+                    var storage=new StorageRecord {Key=r.ReadString()};
+                    if(string.IsNullOrEmpty(storage.Key) || !keys.Add(storage.Key)) throw new InvalidDataException("Invalid/duplicate storage key.");
+                    int slots=r.ReadInt32();CheckCount(slots,8,stream);
+                    for(int j=0;j<slots;j++)
+                    {
+                        var slot=new ItemStack {ItemId=r.ReadInt32(),Count=r.ReadInt32()};
+                        if(slot.ItemId<0 || slot.Count<0 || (slot.ItemId==0)!=(slot.Count==0)) throw new InvalidDataException("Invalid storage slot.");
+                        storage.Slots.Add(slot);
+                    }
+                    s.Storages.Add(storage);
                 }
             }
             if(stream.Position!=stream.Length) throw new InvalidDataException("Unexpected save trailing data.");

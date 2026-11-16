@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Inventory
 {
-	public class PlayerInventory : MonoBehaviour
+	public class PlayerInventory : MonoBehaviour, IInventoryOwner
 	{
 		[Tooltip("Slots in the bag. Bag upgrades will raise this.")]
 		[SerializeField] private int bagSlotCount = 4;

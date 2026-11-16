@@ -1,0 +1,17 @@
+{
+    "name": "GoblinMiner.Inventory.Sandbox",
+    "rootNamespace": "",
+    "references": [
+        "GoblinMiner.Items",
+        "GoblinMiner.Inventory"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

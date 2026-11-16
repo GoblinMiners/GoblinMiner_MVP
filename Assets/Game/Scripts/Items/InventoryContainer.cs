@@ -209,5 +209,57 @@ public class InventoryContainer
 		return result;
 	}
 
-	private bool IsValidIndex(int index) => index >= 0 && index < slots.Count;
+	public bool IsValidIndex(int index) => index >= 0 && index < slots.Count;
+
+	/// <summary>Puts exactly this stack in a slot, replacing what was there. Used to mirror a
+	/// networked container on clients and to load saves. Raises SlotChanged only on a change.</summary>
+	public void SetSlot(int index, ItemSO item, int count)
+	{
+		if (!IsValidIndex(index)) return;
+		InventorySlot slot = slots[index];
+		if (item == null || count <= 0)
+		{
+			if (slot.IsEmpty) return;
+			slot.Clear();
+		}
+		else
+		{
+			if (slot.Item == item && slot.Count == count) return;
+			slot.SetItem(item, count);
+		}
+		SlotChanged?.Invoke(index);
+	}
+
+	/// <summary>Total of this item across every slot.</summary>
+	public int CountOf(ItemSO item)
+	{
+		if (item == null) return 0;
+		int total = 0;
+		foreach (InventorySlot slot in slots)
+			if (slot.Item == item) total += slot.Count;
+		return total;
+	}
+
+	/// <summary>True if this item is already held, or an empty slot would accept it.</summary>
+	public bool HasRoomOrStackFor(ItemSO item)
+	{
+		if (!Accepts(item)) return false;
+		foreach (InventorySlot slot in slots)
+			if (slot.IsEmpty || slot.Item == item) return true;
+		return false;
+	}
+
+	/// <summary>Removes up to <paramref name="amount"/> of an item, last slots first. Returns the amount removed.</summary>
+	public int RemoveItem(ItemSO item, int amount)
+	{
+		if (item == null || amount <= 0) return 0;
+		int removed = 0;
+		for (int i = slots.Count - 1; i >= 0 && removed < amount; i--)
+		{
+			if (slots[i].Item != item) continue;
+			removed += slots[i].RemoveAmount(amount - removed);
+			SlotChanged?.Invoke(i);
+		}
+		return removed;
+	}
 }

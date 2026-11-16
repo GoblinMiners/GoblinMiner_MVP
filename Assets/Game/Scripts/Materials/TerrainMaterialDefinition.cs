@@ -10,7 +10,10 @@ public sealed class TerrainMaterialDefinition : ScriptableObject
     public Material surfaceMaterial;
     public Material debrisMaterial;
     [Min(0.05f)] public float hardness = 1f;
-    public MineralData inventoryItem;
+    [Tooltip("The item mining this material gives. Its item ID is part of the saved world rules.")]
+    public ItemSO item;
+    [Tooltip("Old mineral asset. Tools > Gobmine > Items > Convert Minerals To Items copies it into Item and can then be removed.")]
+    [HideInInspector] public MineralData inventoryItem;
     [Tooltip("Items per cubic metre of removed terrain; fractions accumulate, never round per hit.")]
     [Min(0)] public double itemsPerCubicMetre = 8;
 

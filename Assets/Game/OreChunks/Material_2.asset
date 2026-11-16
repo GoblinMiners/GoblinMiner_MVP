@@ -17,6 +17,7 @@ MonoBehaviour:
   surfaceMaterial: {fileID: 2100000, guid: 266134e07d305923a9475f56782c872c, type: 2}
   debrisMaterial: {fileID: 2100000, guid: af6bdbf2057a5d79b1ec3178ee9dc79c, type: 2}
   hardness: 1.35
+  item: {fileID: 11400000, guid: cb94501d7fa9c0f498d566bf3ac437b8, type: 2}
   inventoryItem: {fileID: 11400000, guid: 520cc35c33ff5636b3bed9996a97a502, type: 2}
   itemsPerCubicMetre: 32
   generateDeposits: 1

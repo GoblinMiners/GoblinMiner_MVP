@@ -162,7 +162,7 @@ public partial class World
                     total += d.radiationRate * (float)Math.Min(4d, Math.Sqrt(pile.Units)) * Mathf.Clamp01(1f-Vector3.Distance(position,pile.Position)/radius);
             }
         if (carrying != null && !GobmineExpeditionRules.Has(expeditionUnlocks, GobmineResearch.ShieldedContainer))
-            foreach (var item in carrying.Quantities)
+            foreach (var item in carrying.Totals)
             {
                 var d = materialCatalog.Get(MaterialForItem(item.Key));
                 if (d != null && d.radiationRate > 0f) total += d.radiationRate * (float)Math.Min(8d, Math.Sqrt(item.Value));

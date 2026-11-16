@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 99d3b815911c7604ba671dd4d1c3d974, type: 3}
   m_Name: Ore
   m_EditorClassIdentifier: Assembly-CSharp::ItemSO
+  itemID: 103
   itemName: Test Ore
   itemType: 1
   icon: {fileID: 5169176031819955633, guid: 3e3d84eb1c9fc9f41830a3a0cbeb5a04, type: 3}

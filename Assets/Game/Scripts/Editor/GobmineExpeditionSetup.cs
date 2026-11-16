@@ -91,7 +91,7 @@ public static class GobmineExpeditionSetup
                 }
                 defs.Add(copy);
             }
-            foreach(var d in defs)if(d.materialId==5 || d.materialId==6 || (d.inventoryItem!=null && (d.inventoryItem.mineralID==5 || d.inventoryItem.mineralID==6)))
+            foreach(var d in defs)if(d.materialId==5 || d.materialId==6 || (d.item!=null && (d.item.itemID==5 || d.item.itemID==6)))
                 throw new InvalidOperationException("Material/item IDs 5 and 6 are already used in this custom catalogue. Choose unused IDs in the installer before proceeding; nothing will be renumbered automatically.");
             defs.Add(NewOre("Uranium Ore",5,120,3,new Color(0.3f,0.8f,0.06f,1f),oreShader,true));
             defs.Add(NewOre("Deep Crystal",6,220,4,new Color(0.3f,0.25f,0.9f,1f),oreShader,false));
@@ -111,13 +111,19 @@ public static class GobmineExpeditionSetup
     {
         string prefix=Folder+"/"+name.Replace(" ","");
         var d=AssetDatabase.LoadAssetAtPath<TerrainMaterialDefinition>(prefix+"Definition.asset");if(d!=null)return d;
-        var item=AssetDatabase.LoadAssetAtPath<MineralData>(prefix+"Item.asset");
-        if(item==null){item=ScriptableObject.CreateInstance<MineralData>();item.mineralName=name;item.mineralID=id;item.baseValue=radioactive?250:500;item.displayColor=color;AssetDatabase.CreateAsset(item,prefix+"Item.asset");}
+        string itemPath=prefix+"Item.asset";
+        var item=AssetDatabase.LoadAssetAtPath<ItemSO>(itemPath);
+        if(item==null)
+        {
+            if(AssetDatabase.LoadMainAssetAtPath(itemPath)!=null)itemPath=AssetDatabase.GenerateUniqueAssetPath(itemPath); // An old mineral asset is there.
+            item=ScriptableObject.CreateInstance<ItemSO>();item.itemID=id;item.itemName=name;item.itemType=ItemType.Resource;
+            item.maxStackSize=GobmineItemSetup.ResourceStackSize;item.baseSellValue=radioactive?250:500;AssetDatabase.CreateAsset(item,itemPath);
+        }
         Material surface=AssetDatabase.LoadAssetAtPath<Material>(prefix+"Surface.mat");
         if(surface==null){surface=new Material(shader){name=name+" Surface"};surface.SetColor("_BaseColor",new Color(0.22f,0.23f,0.25f,1));surface.SetColor("_OreColor",color);surface.SetFloat("_VeinAmount",0.25f);AssetDatabase.CreateAsset(surface,prefix+"Surface.mat");}
         Material debris=AssetDatabase.LoadAssetAtPath<Material>(prefix+"Debris.mat");
         if(debris==null){debris=new Material(surface){name=name+" Rubble"};debris.SetFloat("_WorldSpace",0f);AssetDatabase.CreateAsset(debris,prefix+"Debris.mat");}
-        d=ScriptableObject.CreateInstance<TerrainMaterialDefinition>();d.materialId=id;d.displayName=name;d.surfaceMaterial=surface;d.debrisMaterial=debris;d.inventoryItem=item;
+        d=ScriptableObject.CreateInstance<TerrainMaterialDefinition>();d.materialId=id;d.displayName=name;d.surfaceMaterial=surface;d.debrisMaterial=debris;d.item=item;
         d.hardness=radioactive?3f:4f;d.itemsPerCubicMetre=radioactive?6:4;d.generateDeposits=true;d.depositGridSizeInCells=48;d.depositChancePerThousand=radioactive?450:300;
         d.minimumRadiusInCells=4;d.maximumRadiusInCells=9;d.minimumCellY=-10000000;d.maximumCellY=10000000;
         d.useDepthBand=true;d.minimumDepthMetres=depth;d.maximumDepthMetres=100000;d.requiredToolTier=tier;d.radiationRate=radioactive?1f:0f;

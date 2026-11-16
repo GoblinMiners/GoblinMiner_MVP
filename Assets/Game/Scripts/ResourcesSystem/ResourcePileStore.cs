@@ -53,7 +53,8 @@ public sealed class ResourcePileStore
 
     public long Add(int material,int item,double units,Vector3 position)
     {
-        if (material<=0 || item<=0 || double.IsNaN(units) || double.IsInfinity(units) || units<=0 ||
+        // Material 0 = a dropped item that is not a terrain resource (a tool, a potion).
+        if (material<0 || item<=0 || double.IsNaN(units) || double.IsInfinity(units) || units<=0 ||
             !Finite(position.x)||!Finite(position.y)||!Finite(position.z)) throw new ArgumentException("Invalid resource payload.");
         Key key=Bucket(position,material,item); long id; Pile p;
         if (_buckets.TryGetValue(key,out id) && _piles.TryGetValue(id,out p))
@@ -79,6 +80,14 @@ public sealed class ResourcePileStore
         if(!Finite(position.x)||!Finite(position.y)||!Finite(position.z)||!_piles.TryGetValue(id,out p))return false;
         bool moved=SpatialCell(p.Position)!=SpatialCell(position);if(moved)Unindex(p);
         p.Position=position;_piles[id]=p;if(moved)Index(p);return true;
+    }
+    /// <summary>Sets what is left after a partial pickup. Zero or less removes the pile.</summary>
+    public bool SetUnits(long id,double units)
+    {
+        Pile p;
+        if(!_piles.TryGetValue(id,out p) || double.IsNaN(units) || double.IsInfinity(units))return false;
+        if(units<=0d)return Remove(id,out p);
+        p.Units=units;_piles[id]=p;return true;
     }
     public List<Pile> Copy() => new List<Pile>(_piles.Values);
     public void Import(IEnumerable<Pile> records)

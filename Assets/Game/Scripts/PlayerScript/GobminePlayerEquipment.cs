@@ -13,7 +13,9 @@ public sealed class GobminePlayerEquipment : NetworkBehaviour
     private bool _menu;
     private string _message;
     private float _messageUntil, _nextServerMessage, _nextResearchCommand;
-    public static bool LocalMenuOpen { get; private set; }
+    private static bool _researchMenuOpen;
+    /// <summary>A menu that takes the mouse is open: the research menu or the inventory window.</summary>
+    public static bool LocalMenuOpen => _researchMenuOpen || InventoryWindow.AnyOpen;
     public int ToolTier => GobmineExpeditionRules.ToolTier(unlocked);
     public bool Has(GobmineResearch bit) => GobmineExpeditionRules.Has(unlocked,bit);
     private void Awake() { _inventory=GetComponent<PlayerInventory>(); }
@@ -24,12 +26,12 @@ public sealed class GobminePlayerEquipment : NetworkBehaviour
         if(!isLocalPlayer || world==null || !world.ExpeditionEnabled)return;
         if(Keyboard.current!=null && Keyboard.current.f2Key.wasPressedThisFrame)
         {
-            _menu=!_menu;LocalMenuOpen=_menu;
+            _menu=!_menu;_researchMenuOpen=_menu;
             Cursor.lockState=_menu?CursorLockMode.None:CursorLockMode.Locked;Cursor.visible=_menu;
         }
     }
-    public override void OnStopLocalPlayer() { LocalMenuOpen=false;_menu=false;base.OnStopLocalPlayer(); }
-    private void OnDisable() { if(isLocalPlayer)LocalMenuOpen=false; }
+    public override void OnStopLocalPlayer() { _researchMenuOpen=false;_menu=false;base.OnStopLocalPlayer(); }
+    private void OnDisable() { if(isLocalPlayer)_researchMenuOpen=false; }
     [Command]
     private void CmdResearch(int index)
     {
@@ -65,7 +67,7 @@ public sealed class GobminePlayerEquipment : NetworkBehaviour
             var r=settings.recipes[i];var text=new StringBuilder(r.label);
             text.Append(Has(r.unlock)?"  [UNLOCKED]":"  ");
             if(!Has(r.unlock))foreach(var c in r.costs)
-            { var item=_inventory.FindItem(c.itemId);text.Append(c.amount).Append(' ').Append(item!=null?item.mineralName:c.itemId.ToString()).Append("; "); }
+            { var item=_inventory.FindItem(c.itemId);text.Append(c.amount).Append(' ').Append(item!=null?item.itemName:c.itemId.ToString()).Append("; "); }
             GUI.enabled=!Has(r.unlock);
             if(GUILayout.Button(text.ToString()))CmdResearch(i);
         }

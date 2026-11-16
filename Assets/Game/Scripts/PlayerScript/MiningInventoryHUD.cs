@@ -42,12 +42,13 @@ public sealed class MiningInventoryHUD : MonoBehaviour
     {
         if(!showHUD || _inventory==null || !_inventory.isLocalPlayer)return;
         _text.Clear();_text.Append("MINING INVENTORY\nTarget: ").Append(_target).Append('\n');
-        foreach(var pair in _inventory.Quantities)
+        var totals=_inventory.Totals;
+        foreach(var pair in totals)
         {
             var item=_inventory.FindItem(pair.Key);
-            _text.Append(item!=null?item.mineralName:pair.Key.ToString()).Append(": ").Append(pair.Value.ToString("0.##")).Append('\n');
+            _text.Append(item!=null?item.itemName:pair.Key.ToString()).Append(": ").Append(pair.Value.ToString("0.##")).Append('\n');
         }
-        if(_inventory.Quantities.Count==0)_text.Append("No resources collected yet.\n");
-        GUI.Box(new Rect(12,12,320,Mathf.Max(100,65+_inventory.Quantities.Count*22)),_text.ToString());
+        if(totals.Count==0)_text.Append("No resources collected yet.\n");
+        GUI.Box(new Rect(12,12,320,Mathf.Max(100,65+totals.Count*22)),_text.ToString());
     }
 }

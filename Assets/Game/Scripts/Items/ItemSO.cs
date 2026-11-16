@@ -3,6 +3,8 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "Item", menuName = "NewItem")]
 public class ItemSO : ScriptableObject
 {
+	[Tooltip("Stable ID used in saves and over the network. Unique per item, and never renumber an item a saved world already holds. Tools > Gobmine > Items > Assign Missing Item IDs fills in free ones.")]
+	public int itemID;
     public string itemName;
 	public ItemType itemType = ItemType.Unassigned;
 	public Sprite icon;

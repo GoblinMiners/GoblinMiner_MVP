@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -10,6 +11,10 @@ public class InventoryWindow : MonoBehaviour
 	[SerializeField] private GameObject hotbarContainer;
 
 	public bool IsOpen { get; private set; }
+
+	private static readonly HashSet<InventoryWindow> openWindows = new HashSet<InventoryWindow>();
+	/// <summary>True while any inventory window is open. Gameplay uses it to stop looking and mining.</summary>
+	public static bool AnyOpen => openWindows.Count > 0;
 
 	public event Action<bool> OpenStateChanged;
 
@@ -26,13 +31,18 @@ public class InventoryWindow : MonoBehaviour
 		else if (IsOpen && Input.GetKeyDown(closeKey))
 			SetOpen(false);
 
-		if (Input.GetKeyDown(KeyCode.L))
-			Debug.Log("Over panel: " + IsPointerOverPanel());
+	}
+
+	private void OnDisable()
+	{
+		openWindows.Remove(this);
 	}
 
 	public void SetOpen(bool open)
 	{
 		IsOpen = open;
+		if (open) openWindows.Add(this);
+		else openWindows.Remove(this);
 
 		container.SetActive(open);
 		Cursor.lockState = open ? CursorLockMode.None : CursorLockMode.Locked;

@@ -5,7 +5,8 @@
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "GoblinMiner.Inventory",
-        "GoblinMiner.Items"
+        "GoblinMiner.Items",
+        "GoblinMiner.Inventory.Sandbox"
     ],
     "includePlatforms": [
         "Editor"

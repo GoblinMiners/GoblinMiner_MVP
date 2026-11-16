@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 99d3b815911c7604ba671dd4d1c3d974, type: 3}
   m_Name: TestSupport
   m_EditorClassIdentifier: GoblinMiner.Items::ItemSO
+  itemID: 102
   itemName: Test Support
   itemType: 3
   icon: {fileID: 361880714584236236, guid: 0315e06d16e0c414d9582b8f2fa07a5f, type: 3}
