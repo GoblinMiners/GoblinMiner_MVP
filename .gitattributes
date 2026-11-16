@@ -1,0 +1,11 @@
+# Merge Unity YAML files with Unity's Smart Merge instead of as plain text.
+# Each machine enables it once (see the Unity manual, "Smart merge"):
+#   git config merge.unityyamlmerge.name "Unity SmartMerge"
+#   git config merge.unityyamlmerge.driver "<Editor>/Data/Tools/UnityYAMLMerge.exe merge -p %O %B %A %A"
+# Without that setting git falls back to its normal merge, so this file is harmless.
+*.unity merge=unityyamlmerge
+*.prefab merge=unityyamlmerge
+*.asset merge=unityyamlmerge
+*.mat merge=unityyamlmerge
+*.anim merge=unityyamlmerge
+*.controller merge=unityyamlmerge
