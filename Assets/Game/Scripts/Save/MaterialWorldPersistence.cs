@@ -3,6 +3,8 @@ using System.IO;
 using System.Text;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>Versioned sparse terrain + uncollected resources in a single checksummed snapshot.</summary>
@@ -47,9 +49,44 @@ public static class MaterialWorldPersistence
         return false;
     }
 
+    // Saves are written one at a time and never out of order: a background autosave that
+    // was requested before a later (for example shutdown) save can never overwrite it.
+    private static readonly object WriteLock=new object();
+    private static long _tickets,_lastWrittenTicket;
+
     public static void Write(string path,Snapshot snapshot)
     {
-        byte[] bytes=Encode(snapshot);
+        long ticket=Interlocked.Increment(ref _tickets);
+        WriteFile(path,Seal(EncodePayload(snapshot)),ticket);
+    }
+
+    /// <summary>
+    /// Serialises on the calling (main) thread, because the snapshot refers to live game
+    /// records, then hashes and writes the file on a worker thread. Failures are logged.
+    /// </summary>
+    public static Task WriteInBackground(string path,Snapshot snapshot)
+    {
+        byte[] payload=EncodePayload(snapshot);
+        long ticket=Interlocked.Increment(ref _tickets);
+        return Task.Run(()=>
+        {
+            try { WriteFile(path,Seal(payload),ticket); }
+            catch(Exception ex) { Debug.LogError("[Gobmine Material Save] Background save failed: "+ex); }
+        });
+    }
+
+    private static void WriteFile(string path,byte[] bytes,long ticket)
+    {
+        lock(WriteLock)
+        {
+            if(ticket<_lastWrittenTicket)return; // A newer save is already on disk.
+            WriteFileLocked(path,bytes);
+            _lastWrittenTicket=ticket;
+        }
+    }
+
+    private static void WriteFileLocked(string path,byte[] bytes)
+    {
         string directory=Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
         string temp=path+".tmp", backup=path+".bak";
@@ -59,7 +96,18 @@ public static class MaterialWorldPersistence
         else File.Move(temp,path);
     }
 
-    public static byte[] Encode(Snapshot s)
+    public static byte[] Encode(Snapshot s)=>Seal(EncodePayload(s));
+
+    /// <summary>Appends the SHA-256 checksum that <see cref="Decode"/> verifies.</summary>
+    private static byte[] Seal(byte[] payload)
+    {
+        byte[] result=new byte[payload.Length+32];
+        Buffer.BlockCopy(payload,0,result,0,payload.Length);
+        using(var sha=SHA256.Create()) { byte[] hash=sha.ComputeHash(payload); Buffer.BlockCopy(hash,0,result,payload.Length,32); }
+        return result;
+    }
+
+    private static byte[] EncodePayload(Snapshot s)
     {
         using(var buffer=new MemoryStream())
         {
@@ -106,8 +154,6 @@ public static class MaterialWorldPersistence
                     }
                 }
             }
-            byte[] payload=buffer.ToArray();
-            using(var sha=SHA256.Create()) { byte[] hash=sha.ComputeHash(payload); buffer.Write(hash,0,hash.Length); }
             return buffer.ToArray();
         }
     }

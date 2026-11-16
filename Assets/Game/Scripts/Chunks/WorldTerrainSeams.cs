@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 
 /// <summary>
@@ -20,6 +21,10 @@ public partial class World
         public long Version;
         public float[,,] Density;
         public Chunk.PreparedMesh Prepared;
+        // Worker-thread halves of a rebuild. Both only read the frozen Density snapshot / prepared mesh.
+        public Task<TerrainMeshBuilder.Result> Geometry;
+        public Task Bake;
+        public bool Skipped;
     }
 
     private sealed class SeamWave
@@ -27,8 +32,11 @@ public partial class World
         public readonly HashSet<Vector3Int> Coordinates = new HashSet<Vector3Int>();
         public readonly Dictionary<Vector3Int, SeamStage> Stages = new Dictionary<Vector3Int, SeamStage>();
         public readonly List<Vector3Int> Order = new List<Vector3Int>();
-        public int Cursor;
     }
+
+    [Header("Terrain mesh threading")]
+    [Tooltip("Build edited chunk geometry and bake its collider on worker threads instead of the main thread. An edit then appears one or two frames later, but no longer stalls the frame. Turn off to get the old fully synchronous rebuild.")]
+    public bool threadedTerrainMeshing = true;
 
     private readonly List<SeamWave> _seamPending = new List<SeamWave>();
     private readonly Dictionary<Vector3Int, SeamWave> _seamQueuedByChunk =
@@ -38,7 +46,17 @@ public partial class World
     // Reuse frozen snapshot arrays. Each is 17^3 samples at the default chunk
     // resolution; allocating these on every mining hit would create GC spikes.
     private readonly Stack<float[,,]> _seamDensityPool = new Stack<float[,,]>();
-    private const int SeamDensityPoolLimit = 64;
+    private const int SeamDensityPoolLimit = 256;
+    // Chunks that leave view hand their density array back here; see Chunk.ReleaseForSleep.
+    private const int ChunkPoolLimit = 512;
+
+    private void RecycleChunkDensities(float[,,] densities)
+    {
+        if (densities == null || _seamDensityPool.Count >= SeamDensityPoolLimit) return;
+        if (densities.GetLength(0) != chunkSize.x + 1 || densities.GetLength(1) != chunkSize.y + 1 ||
+            densities.GetLength(2) != chunkSize.z + 1) return;
+        _seamDensityPool.Push(densities);
+    }
 
     private float[,,] RentSeamDensitySnapshot(Vector3Int coord)
     {
@@ -54,7 +72,11 @@ public partial class World
 
     private void RecycleSeamSnapshot(SeamStage stage)
     {
-        if (stage.Density != null &&
+        // A worker may still be reading this snapshot (cancelled wave). Never hand
+        // an array back for reuse while that is possible; let the GC have it instead.
+        bool workerBusy = stage.Geometry != null && !stage.Geometry.IsCompleted;
+        stage.Geometry = null; stage.Bake = null;
+        if (!workerBusy && stage.Density != null &&
             (stage.Target == null || !object.ReferenceEquals(stage.Target.GetDensities(), stage.Density)) &&
             _seamDensityPool.Count < SeamDensityPoolLimit)
             _seamDensityPool.Push(stage.Density);
@@ -164,6 +186,17 @@ public partial class World
             }
             wave.Order.Sort(CompareSeamCoords);
             if (wave.Order.Count == 0) { i--; continue; }
+            if (threadedTerrainMeshing)
+            {
+                Vector3Int size = chunkSize; float spacing = voxelSize;
+                foreach (Vector3Int coord in wave.Order)
+                {
+                    SeamStage stage = wave.Stages[coord];
+                    float[,,] frozen = stage.Density;
+                    stage.Geometry = Task.Run(() =>
+                        TerrainMeshBuilder.BuildGeometry(frozen, size, spacing, new TerrainMeshBuilder.Result()));
+                }
+            }
             _seamActive = wave;
             return true;
         }
@@ -192,22 +225,45 @@ public partial class World
         int built = 0;
         int maxBuilds = Mathf.Max(1, meshRebuildsPerFrame);
         float milliseconds = Mathf.Max(0.1f, meshMillisecondsPerFrame);
-        while (wave.Cursor < wave.Order.Count && built < maxBuilds)
+        bool waiting = false;
+        for (int i = 0; i < wave.Order.Count; i++)
         {
-            if (built > 0 && _meshWatch.Elapsed.TotalMilliseconds >= milliseconds) break;
-            Vector3Int coord = wave.Order[wave.Cursor++];
+            Vector3Int coord = wave.Order[i];
             SeamStage stage = wave.Stages[coord];
-            Chunk stillActive;
-            if (!_activeChunks.TryGetValue(coord, out stillActive) ||
-                !object.ReferenceEquals(stillActive, stage.Target) || !stillActive.gameObject.activeInHierarchy)
+            if (stage.Skipped) continue;
+            if (stage.Prepared == null)
             {
-                // Chunk unloaded/reused while the snapshot was being staged.
-                continue;
+                Chunk stillActive;
+                if (!_activeChunks.TryGetValue(coord, out stillActive) ||
+                    !object.ReferenceEquals(stillActive, stage.Target) || !stillActive.gameObject.activeInHierarchy)
+                {
+                    // Chunk unloaded/reused while the snapshot was being staged.
+                    stage.Skipped = true;
+                    continue;
+                }
+                // Worker still building this chunk's triangles: look again next frame.
+                if (stage.Geometry != null && !stage.Geometry.IsCompleted) { waiting = true; continue; }
+                if (built >= maxBuilds || (built > 0 && _meshWatch.Elapsed.TotalMilliseconds >= milliseconds))
+                { waiting = true; continue; }
+                bool threaded = stage.Geometry != null && stage.Geometry.Status == TaskStatus.RanToCompletion;
+                if (stage.Geometry != null && !threaded)
+                    Debug.LogWarning("[Gobmine Mesh] Threaded build failed for " + coord + "; rebuilding on the main thread. " +
+                        (stage.Geometry.Exception != null ? stage.Geometry.Exception.GetBaseException().Message : "Cancelled."));
+                stage.Prepared = threaded
+                    ? stillActive.PrepareMeshFromGeometry(stage.Geometry.Result, stage.Density)
+                    : stillActive.PrepareMeshWithoutPublishing(stage.Density);
+                stage.Geometry = null;
+                built++;
+                if (threaded && stage.Prepared.HasTriangles)
+                {
+                    // Cook the collider off the main thread; publishing then only assigns it.
+                    var meshId = stage.Prepared.PreparedMeshForBaking.GetEntityId();
+                    stage.Bake = Task.Run(() => Physics.BakeMesh(meshId, false));
+                }
             }
-            stage.Prepared = stillActive.PrepareMeshWithoutPublishing(stage.Density);
-            built++;
+            if (stage.Bake != null && !stage.Bake.IsCompleted) waiting = true;
         }
-        if (wave.Cursor < wave.Order.Count) return;
+        if (waiting) return;
 
         // All staged meshes become visible in the same Unity frame. There is
         // no partial publish, even if preparing eight chunks took two frames.
@@ -233,11 +289,23 @@ public partial class World
         AtomicTerrainPublications++;
     }
 
+    // A prepared mesh must not be destroyed while a worker is still cooking its collider.
+    private static void DisposeSeamStageMesh(SeamStage stage)
+    {
+        if (stage.Bake != null && !stage.Bake.IsCompleted)
+        {
+            try { stage.Bake.Wait(); }
+            catch (Exception) { /* A failed bake only means the collider is cooked on assignment. */ }
+        }
+        if (stage.Prepared != null) stage.Prepared.Dispose();
+        stage.Prepared = null;
+    }
+
     private void CancelSeamWave(SeamWave wave)
     {
         foreach (SeamStage stage in wave.Stages.Values)
         {
-            if (stage.Prepared != null) stage.Prepared.Dispose();
+            DisposeSeamStageMesh(stage);
             RecycleSeamSnapshot(stage);
         }
         _seamActive = null;
@@ -253,7 +321,7 @@ public partial class World
         if (_seamActive != null)
             foreach (SeamStage stage in _seamActive.Stages.Values)
             {
-                if (stage.Prepared != null) stage.Prepared.Dispose();
+                DisposeSeamStageMesh(stage);
                 RecycleSeamSnapshot(stage);
             }
         _seamActive = null;

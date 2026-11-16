@@ -332,7 +332,11 @@ public partial class World
     {
         if(!isServer || !_materialWorldValid || !IsReady)return;
         if(materialAutosaveSeconds>0 && Time.unscaledTime>=_nextAutosave)
-        { SaveMaterialWorld();_nextAutosave=Time.unscaledTime+Mathf.Max(1f,materialAutosaveSeconds); }
+        {
+            // Skip a tick rather than queue up saves if the disk is slower than the interval.
+            if(_backgroundSave==null || _backgroundSave.IsCompleted)SaveMaterialWorld(true);
+            _nextAutosave=Time.unscaledTime+Mathf.Max(1f,materialAutosaveSeconds);
+        }
         if(Time.unscaledTime<_nextResourceRefresh)return;
         _nextResourceRefresh=Time.unscaledTime+0.5f;
         var nearest=new List<ResourcePileStore.Pile>();
@@ -365,7 +369,13 @@ public partial class World
         return result;
     }
     public bool SaveWorldNow() => isServer && SaveMaterialWorld();
-    private bool SaveMaterialWorld()
+    private System.Threading.Tasks.Task _backgroundSave;
+    /// <summary>
+    /// background=false blocks until the file is on disk (shutdown, explicit saves).
+    /// background=true (autosave) only serialises here and writes on a worker thread;
+    /// it returns true once the save is queued, and a write failure is logged.
+    /// </summary>
+    private bool SaveMaterialWorld(bool background=false)
     {
         if(!_materialWorldValid || _terrain==null)return false;
         try
@@ -392,7 +402,9 @@ public partial class World
             if (_fluids != null) s.Fluids = _fluids.CopyOverrides();
             s.Shapes = SnapshotFallingShapesForSave();
             s.OreChunks = SnapshotOreChunksForSave();
-            MaterialWorldPersistence.Write(MaterialSavePath,s);return true;
+            if(background)_backgroundSave=MaterialWorldPersistence.WriteInBackground(MaterialSavePath,s);
+            else MaterialWorldPersistence.Write(MaterialSavePath,s);
+            return true;
         }
         catch(Exception ex){Debug.LogError("[Gobmine Material Save] "+ex);return false;}
     }

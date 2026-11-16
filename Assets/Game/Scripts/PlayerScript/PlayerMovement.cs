@@ -47,7 +47,7 @@ public class PlayerMovement : NetworkBehaviour
     private CharacterController _controller;
     private GobminePlayerHealth _health;
     private InputActionAsset _runtimeInput;
-    private InputAction _move, _look, _jump, _fallbackJump;
+    private InputAction _move, _look, _jump, _fallbackJump, _descend;
     private readonly PlayerJumpBuffer _jumpBuffer = new PlayerJumpBuffer();
     private readonly RaycastHit[] _groundHits = new RaycastHit[32];
     private float _verticalPitch, _verticalVelocity, _configuredStepOffset;
@@ -128,7 +128,8 @@ public class PlayerMovement : NetworkBehaviour
             _jump = _fallbackJump;
             Debug.LogWarning("[Gobmine Movement] No bound Player/Jump action found. Using Space / gamepad south button until you bind Jump in your asset.", this);
         }
-        _move.Enable(); _look.Enable(); _jump?.Enable();
+        _descend = _runtimeInput.FindAction("Player/Descend", false);
+        _move.Enable(); _look.Enable(); _jump?.Enable(); _descend?.Enable();
     }
 
     private static InputActionAsset CreateDefaultInput()
@@ -155,7 +156,7 @@ public class PlayerMovement : NetworkBehaviour
     private void OnEnable()
     {
         if (!_localStarted) return;
-        _move?.Enable(); _look?.Enable(); _jump?.Enable();
+        _move?.Enable(); _look?.Enable(); _jump?.Enable(); _descend?.Enable();
     }
     private void OnDisable()
     {
@@ -168,7 +169,7 @@ public class PlayerMovement : NetworkBehaviour
     {
         if (_runtimeInput != null) { _runtimeInput.Disable(); Destroy(_runtimeInput); _runtimeInput = null; }
         if (_fallbackJump != null) { _fallbackJump.Disable(); _fallbackJump.Dispose(); _fallbackJump = null; }
-        _move = _look = _jump = null;
+        _move = _look = _jump = _descend = null;
     }
 
     private void Update()
@@ -189,8 +190,7 @@ public class PlayerMovement : NetworkBehaviour
         if (dead) _jumpBuffer.Reset();
         else if (!menuOpen && _jump != null && _jump.WasPressedThisFrame()) _jumpBuffer.Press(Time.time);
         _swimUp = !dead && !menuOpen && _jump != null && _jump.IsPressed();
-        InputAction descend = _runtimeInput.FindAction("Player/Descend", false);
-        if (descend != null && !descend.enabled) descend.Enable();
+        InputAction descend = _descend;
         _swimDown = !dead && !menuOpen && ((descend != null && descend.IsPressed()) ||
             (Keyboard.current != null && Keyboard.current.leftCtrlKey.isPressed) || (Gamepad.current != null && Gamepad.current.rightShoulder.isPressed));
         Vector2 input = dead || menuOpen ? Vector2.zero : _move.ReadValue<Vector2>();

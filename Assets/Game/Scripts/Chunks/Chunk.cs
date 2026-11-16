@@ -50,6 +50,21 @@ public class Chunk : MonoBehaviour
         }
     }
     public float[,,] GetDensities()=>_densities;
+    /// <summary>
+    /// Called when the chunk goes out of view. A sleeping chunk is always rebuilt from the
+    /// central density store when it wakes, so keeping its mesh, collider and density array
+    /// only costs memory. Returns the density array so the caller can reuse it.
+    /// </summary>
+    public float[,,] ReleaseForSleep()
+    {
+        float[,,] released=_densities; _densities=null; _hasBuiltMesh=false;
+        _triangleMaterials.Clear(); _meshData.Clear();
+        if(_meshCollider!=null)_meshCollider.sharedMesh=null;
+        if(_meshRenderer!=null)_meshRenderer.enabled=false;
+        if(_mesh!=null)_mesh.Clear(false);
+        if(_standbyMesh!=null && _standbyMesh!=_mesh)_standbyMesh.Clear(false);
+        return released;
+    }
     public int GetHitMaterialId(int triangleIndex)=>triangleIndex>=0 && triangleIndex<_triangleMaterials.Count?_triangleMaterials[triangleIndex]:0;
     public void EditTerrain(Vector3 hit,float radius,float amount)
     {if(amount==0){BuildMeshSync();return;}if(World.Instance!=null)World.Instance.RequestModifyTerrain(hit,radius,amount);}
@@ -66,6 +81,9 @@ public class Chunk : MonoBehaviour
         internal TerrainMeshBuilder.Result Data;
         internal readonly List<int> TriangleMaterials = new List<int>();
         internal readonly List<Material> Materials = new List<Material>();
+        /// <summary>False for an all-air or all-solid chunk, which has no surface and needs no collider.</summary>
+        public bool HasTriangles => TriangleMaterials.Count > 0;
+        public Mesh PreparedMeshForBaking => Mesh;
         public void Dispose()
         {
             if (Mesh != null)
@@ -88,6 +106,27 @@ public class Chunk : MonoBehaviour
         prepared.DensitySnapshot = densitySnapshot;
         prepared.Data = TerrainMeshBuilder.Build(source, _size, _voxelSize,
             _globalOrigin, _materialResolver, new TerrainMeshBuilder.Result());
+        return FinishPreparedMesh(prepared, true);
+    }
+
+    /// <summary>
+    /// Main-thread half of a threaded rebuild. <paramref name="geometry"/> comes from
+    /// <see cref="TerrainMeshBuilder.BuildGeometry"/> run on a worker thread over the same
+    /// density snapshot. The collider is NOT baked here: the caller bakes it on a worker
+    /// thread too (Physics.BakeMesh is thread-safe) before publishing.
+    /// </summary>
+    public PreparedMesh PrepareMeshFromGeometry(TerrainMeshBuilder.Result geometry, float[,,] densitySnapshot)
+    {
+        if (geometry == null) throw new System.ArgumentNullException(nameof(geometry));
+        TerrainMeshBuilder.AssignMaterials(geometry, _globalOrigin, _materialResolver);
+        var prepared = new PreparedMesh();
+        prepared.DensitySnapshot = densitySnapshot;
+        prepared.Data = geometry;
+        return FinishPreparedMesh(prepared, false);
+    }
+
+    private PreparedMesh FinishPreparedMesh(PreparedMesh prepared, bool bakeCollider)
+    {
         var data = prepared.Data;
         var mesh = new Mesh { name = "Gobmine prepared terrain", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
         mesh.SetVertices(data.Vertices);
@@ -107,8 +146,8 @@ public class Chunk : MonoBehaviour
         prepared.Mesh = mesh;
         // Bake while the old collider is still active; assigning the prepared
         // collider during the eventual swap then avoids much of the cook cost.
-        if (prepared.TriangleMaterials.Count > 0)
-            Physics.BakeMesh(mesh.GetInstanceID(), false);
+        if (bakeCollider && prepared.TriangleMaterials.Count > 0)
+            Physics.BakeMesh(mesh.GetEntityId(), false);
         return prepared;
     }
 

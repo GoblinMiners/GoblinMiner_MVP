@@ -48,14 +48,14 @@ public partial class World
             {
                 if (chunk != null)
                 {
-                    chunk.Init(chunkSize, voxelSize, ChunkPosition(coord), noiseScale, seed, _terrain.MakeChunk(coord));
+                    chunk.Init(chunkSize, voxelSize, ChunkPosition(coord), noiseScale, seed, RentSeamDensitySnapshot(coord));
                     chunk.gameObject.SetActive(true);
                     _meshFence.MarkBuilt(coord);
                 }
                 else if (_sleepingChunks.TryGetValue(coord, out chunk) && chunk != null)
                 {
                     _sleepingChunks.Remove(coord);
-                    chunk.Init(chunkSize, voxelSize, ChunkPosition(coord), noiseScale, seed, _terrain.MakeChunk(coord));
+                    chunk.Init(chunkSize, voxelSize, ChunkPosition(coord), noiseScale, seed, RentSeamDensitySnapshot(coord));
                     chunk.gameObject.SetActive(true);
                     _activeChunks[coord] = chunk;
                     _meshFence.MarkBuilt(coord);

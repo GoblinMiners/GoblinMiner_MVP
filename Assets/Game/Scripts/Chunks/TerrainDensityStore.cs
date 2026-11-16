@@ -22,6 +22,10 @@ public sealed class TerrainDensityStore
     private readonly HashSet<Vector3Int> _modifiedChunks = new HashSet<Vector3Int>();
     private readonly Dictionary<Vector3Int, Vector2Int> _airXExtents = new Dictionary<Vector3Int, Vector2Int>();
 
+    // The carved spawn room, in metres. BaseDensity and the structural-support proof in
+    // HasSolidRayToInfinity must agree on these, so they are defined once.
+    public const float RoomMinX = -12f, RoomMaxX = 12f, RoomMinY = -4f, RoomMaxY = 8f, RoomMinZ = -12f, RoomMaxZ = 12f;
+
     public TerrainDensityStore(Vector3Int chunkSize, float voxelSize, GobmineCavernGenerator caverns = null)
     {
         if (chunkSize.x < 1 || chunkSize.y < 1 || chunkSize.z < 1 || voxelSize <= 0f)
@@ -42,7 +46,7 @@ public sealed class TerrainDensityStore
     public float BaseDensity(Vector3Int p)
     {
         Vector3 w = (Vector3)p * VoxelSize;
-        bool room = w.x >= -12f && w.x <= 12f && w.y >= -4f && w.y <= 8f && w.z >= -12f && w.z <= 12f;
+        bool room = w.x >= RoomMinX && w.x <= RoomMaxX && w.y >= RoomMinY && w.y <= RoomMaxY && w.z >= RoomMinZ && w.z <= RoomMaxZ;
         if (room) return 5f;
         Vector2Int key = new Vector2Int(p.x, p.z);
         float rock;
@@ -100,16 +104,16 @@ public sealed class TerrainDensityStore
             Vector2Int edits;
             if (_airYExtents.TryGetValue(new Vector2Int(p.x, p.z), out edits) && edits.x <= hi && edits.y >= lo) return false;
             float routeX = p.x * VoxelSize, routeZ = p.z * VoxelSize;
-            if (routeX >= -12f && routeX <= 12f && routeZ >= -12f && routeZ <= 12f && lo * VoxelSize <= 8f && hi * VoxelSize >= -4f) return false;
+            if (routeX >= RoomMinX && routeX <= RoomMaxX && routeZ >= RoomMinZ && routeZ <= RoomMaxZ && lo * VoxelSize <= RoomMaxY && hi * VoxelSize >= RoomMinY) return false;
             if (Get(end) >= 0f) return false;
             p = end; // Base generator guarantees the complete X ray on this seam.
         }
         Vector2Int range;
         bool anyAir = _airXExtents.TryGetValue(new Vector3Int(0, p.y, p.z), out range);
         float y = p.y * VoxelSize, z = p.z * VoxelSize;
-        if (y >= -4f && y <= 8f && z >= -12f && z <= 12f)
+        if (y >= RoomMinY && y <= RoomMaxY && z >= RoomMinZ && z <= RoomMaxZ)
         {
-            int lo = Mathf.CeilToInt(-12f / VoxelSize), hi = Mathf.FloorToInt(12f / VoxelSize);
+            int lo = Mathf.CeilToInt(RoomMinX / VoxelSize), hi = Mathf.FloorToInt(RoomMaxX / VoxelSize);
             range = anyAir ? new Vector2Int(Math.Min(range.x, lo), Math.Max(range.y, hi)) : new Vector2Int(lo, hi);
             anyAir = true;
         }

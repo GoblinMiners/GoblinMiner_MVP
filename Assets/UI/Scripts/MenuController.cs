@@ -189,7 +189,8 @@ public class MenuController : MonoBehaviour
         {
             if (i < playerList.Count)
             {
-                CustomPlayerRoom player = playerList[i] as CustomPlayerRoom;
+                NetworkRoomPlayer player = playerList[i];
+                if (player == null) continue;
                 if (_playerNames[i] != null) _playerNames[i].text = $"Player {i + 1}";
             
                 // Only allow the local player to physically click their own toggle

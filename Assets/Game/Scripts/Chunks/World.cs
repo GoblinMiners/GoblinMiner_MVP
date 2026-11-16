@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 using Mirror;
 using Random = UnityEngine.Random;
@@ -45,6 +46,10 @@ public partial class World : NetworkBehaviour
     [Min(0.1f)] public float meshMillisecondsPerFrame = 3f;
     [Tooltip("Reject additional, not-yet-applied mining requests when a player's pending queue is full. No terrain or rewards are changed for rejected requests.")]
     [UnityEngine.Range(1, 32)] public int maxQueuedMiningRequestsPerPlayer = 4;
+
+    [Header("Late-join snapshot")]
+    [Tooltip("Upload rate for the terrain snapshot sent to a joining player. Higher joins faster but needs more host upload bandwidth.")]
+    [UnityEngine.Range(32, 8192)] public int snapshotKilobytesPerSecond = 512;
 
     [Header("Mining Validation")]
     public bool requireExploringToMine = true;
@@ -608,17 +613,39 @@ public partial class World : NetworkBehaviour
         var fluidSnapshot = _fluids == null ? new List<GobmineFluidPoint>() : _fluids.CopyOverrides();
         long fluidRevision = _fluidRevision;
         TargetBeginTerrainSnapshot(target, revision, chunkSize, voxelSize, maxYChunk, seed, _worldRulesSignature, fluidRevision);
-        const int batchSize = 128; // Keep individual reliable RPCs modest in size.
-        for (int offset = 0; offset < snapshot.Length; offset += batchSize)
+        const int batchSize = 128; // Fluid/shape parts below keep their modest size.
+        // Neighbouring samples compress well once sorted. Sorting a large world takes
+        // too long for one frame, and the copy above is private, so sort it on a worker.
+        if (snapshot.Length > 1)
+        {
+            Task sort = Task.Run(() => TerrainSnapshotCodec.Sort(snapshot));
+            while (!sort.IsCompleted) yield return null;
+            // An unsorted snapshot is still correct, only larger, so a failed sort is not fatal.
+            if (sort.IsFaulted) Debug.LogWarning("[Gobmine Snapshot] Sort failed; sending unsorted. " + sort.Exception.GetBaseException().Message);
+        }
+        // Stay well inside the transport's reliable message limit, whatever transport is used.
+        int transportLimit = Transport.active != null ? Transport.active.GetMaxPacketSize(Channels.Reliable) : 1200;
+        int partBytes = Mathf.Clamp(transportLimit - 512, 256, 16384);
+        float bytesPerSecond = Mathf.Max(32, snapshotKilobytesPerSecond) * 1024f;
+        float allowance = partBytes; // Always send at least one part in the first frame.
+        for (int offset = 0; offset < snapshot.Length; )
         {
             if (!NetworkServer.connections.ContainsKey(target.connectionId)) break;
-            int count = Mathf.Min(batchSize, snapshot.Length - offset);
-            var positions = new Vector3Int[count];
-            var values = new float[count];
-            for (int i = 0; i < count; i++) { positions[i] = snapshot[offset + i].Key; values[i] = snapshot[offset + i].Value; }
-            TargetTerrainSnapshotPart(target, positions, values);
-            yield return null;
+            if (allowance <= 0f)
+            {
+                yield return null;
+                // Cap the catch-up after a long frame so a hitch cannot become a burst.
+                allowance += bytesPerSecond * Mathf.Min(Time.unscaledDeltaTime, 0.1f);
+                continue;
+            }
+            int consumed;
+            byte[] part = TerrainSnapshotCodec.Encode(snapshot, offset, partBytes, out consumed);
+            if (consumed <= 0) break;
+            TargetTerrainSnapshotPart(target, part);
+            offset += consumed;
+            allowance -= part.Length;
         }
+        yield return null;
         for (int offset = 0; offset < fluidSnapshot.Count; offset += batchSize)
         {
             if (!NetworkServer.connections.ContainsKey(target.connectionId)) break;
@@ -661,10 +688,16 @@ public partial class World : NetworkBehaviour
     }
 
     [TargetRpc]
-    private void TargetTerrainSnapshotPart(NetworkConnectionToClient target, Vector3Int[] positions, float[] values)
+    private void TargetTerrainSnapshotPart(NetworkConnectionToClient target, byte[] part)
     {
         if (isServer || _terrain == null) return;
-        for (int i = 0; i < positions.Length; i++) _terrain.Set(positions[i], values[i]);
+        TerrainDensityStore terrain = _terrain;
+        try { TerrainSnapshotCodec.Decode(part, (position, value) => terrain.Set(position, value)); }
+        catch (Exception ex)
+        {
+            // Never keep playing on a half-applied terrain baseline.
+            Debug.LogError("[Gobmine Snapshot] " + ex.Message); NetworkClient.Disconnect();
+        }
     }
 
     [TargetRpc]
@@ -697,7 +730,7 @@ public partial class World : NetworkBehaviour
         // Rebuild existing views, or generate the initial colliders before allowing mining.
         foreach (var entry in _activeChunks)
         {
-            entry.Value.Init(chunkSize, voxelSize, ChunkPosition(entry.Key), noiseScale, seed, _terrain.MakeChunk(entry.Key));
+            entry.Value.Init(chunkSize, voxelSize, ChunkPosition(entry.Key), noiseScale, seed, RentSeamDensitySnapshot(entry.Key));
             entry.Value.gameObject.SetActive(true);
             _meshFence.MarkBuilt(entry.Key);
         }
@@ -743,7 +776,7 @@ public partial class World : NetworkBehaviour
                         if (_sleepingChunks.TryGetValue(coord, out sleeping))
                         {
                             _sleepingChunks.Remove(coord);
-                            sleeping.Init(chunkSize, voxelSize, ChunkPosition(coord), noiseScale, seed, _terrain.MakeChunk(coord));
+                            sleeping.Init(chunkSize, voxelSize, ChunkPosition(coord), noiseScale, seed, RentSeamDensitySnapshot(coord));
                             sleeping.gameObject.SetActive(true);
                             _activeChunks[coord] = sleeping;
                             _meshFence.MarkBuilt(coord);
@@ -798,6 +831,9 @@ public partial class World : NetworkBehaviour
             if (!required.Contains(entry.Key))
             {
                 entry.Value.gameObject.SetActive(false);
+                // Woken chunks are always rebuilt from the density store, so a sleeping
+                // chunk keeps only its GameObject, not its mesh, collider or densities.
+                RecycleChunkDensities(entry.Value.ReleaseForSleep());
                 _sleepingChunks[entry.Key] = entry.Value;
                 remove.Add(entry.Key);
             }
@@ -806,7 +842,8 @@ public partial class World : NetworkBehaviour
         foreach (var entry in _sleepingChunks)
             if (!NearAnyPlayer(entry.Key, Mathf.Max(viewDistanceInChunks, sleepDistanceInChunks)))
             {
-                _chunkPool.Enqueue(entry.Value);
+                if (_chunkPool.Count < ChunkPoolLimit) _chunkPool.Enqueue(entry.Value);
+                else if (entry.Value != null) Destroy(entry.Value.gameObject);
                 remove.Add(entry.Key);
             }
         foreach (Vector3Int c in remove) _sleepingChunks.Remove(c);
@@ -848,7 +885,7 @@ public partial class World : NetworkBehaviour
         chunk.transform.position = ChunkPosition(c);
         chunk.transform.rotation = Quaternion.identity;
         chunk.transform.localScale = Vector3.one;
-        chunk.Init(chunkSize, voxelSize, ChunkPosition(c), noiseScale, seed, _terrain.MakeChunk(c));
+        chunk.Init(chunkSize, voxelSize, ChunkPosition(c), noiseScale, seed, RentSeamDensitySnapshot(c));
         chunk.gameObject.SetActive(true);
         _activeChunks[c] = chunk;
         _meshFence.MarkBuilt(c);
