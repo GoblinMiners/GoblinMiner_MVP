@@ -46,4 +46,12 @@ public class ItemCatalogueTests
 
 		Assert.AreEqual(1, catalogue.Problems.Count);
 	}
+
+	[Test]
+	public void RealItems_HaveNoIdProblems()
+	{
+		var catalogue = new ItemCatalogue(Resources.LoadAll<ItemSO>("Items"));
+
+		Assert.IsEmpty(catalogue.Problems, string.Join("\n", catalogue.Problems));
+	}
 }
