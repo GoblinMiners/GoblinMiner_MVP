@@ -4,6 +4,8 @@ using UnityEngine;
 public class ItemSO : ScriptableObject
 {
     public string itemName;
+	[Tooltip("ID number. Minerals to use 1-999, other items or consumables 1000+, 9000+ for test items (to be deleted later) . Don't change or reuse one once an item has been assigned.")]
+	public int itemId;
 	public ItemType itemType = ItemType.Unassigned;
 	public Sprite icon;
     public int maxStackSize = 1;
@@ -11,7 +13,6 @@ public class ItemSO : ScriptableObject
 	[Tooltip("How heavy 1 of this thing is")]
 	[Min(0)] public float itemWeight = 1f;
 
-	[Header("Tooltip")]
 	[Tooltip("What this sells for at the shops.")]
 	[Min(0)] public int baseSellValue = 0;
 

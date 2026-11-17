@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: TestPotion
   m_EditorClassIdentifier: GoblinMiner.Items::ItemSO
   itemName: Test Potion
+  itemId: 9001
   itemType: 2
   icon: {fileID: 4656004233995704663, guid: dc992f72c39afea4c8fa3ef440361c98, type: 3}
   maxStackSize: 10
