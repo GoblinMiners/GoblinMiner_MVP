@@ -2,10 +2,10 @@ using UnityEngine;
 using Inventory;
 
 // *****NOTE TO REPLACE PROXY ITEMS WITH ITEMS ONCE THEY ARE MADE OR DELETE THIS FOR BETTER SCRIPT******
+[RequireComponent(typeof(PlayerInventory))]
 public class ItemDropSpawner : MonoBehaviour
 {
-	[SerializeField] private PlayerInventory playerInventory;
-	[SerializeField] private Transform player;
+	private PlayerInventory playerInventory;
 
 	[Tooltip("How far in front of the player dropped items appear.")]
 	[SerializeField] private float dropDistance = 1.5f;
@@ -15,9 +15,10 @@ public class ItemDropSpawner : MonoBehaviour
 
 	private void OnEnable()
 	{
+		playerInventory = GetComponent<PlayerInventory>();
 		if (playerInventory == null)
 		{
-			Debug.LogError("[ItemDropSpawner] Player Inventory is not assigned.", this);
+			Debug.LogError("[ItemDropSpawner] Needs a PlayerInventory on the same object.", this);
 			return;
 		}
 		
@@ -32,9 +33,9 @@ public class ItemDropSpawner : MonoBehaviour
 
 	private void OnItemsDropped(ItemSO item, int count)
 	{
-		Vector3 spawnPoint = player.position
-			+ player.forward * dropDistance
-			+ Vector3.up * dropHeight;
+		Vector3 spawnPoint = transform.position
+	+		transform.forward * dropDistance
+	+	Vector3.up * dropHeight;
 
 		GameObject dropped;
 

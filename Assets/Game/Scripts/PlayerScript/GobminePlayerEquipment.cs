@@ -13,8 +13,8 @@ public sealed class GobminePlayerEquipment : NetworkBehaviour
     private bool _menu;
     private string _message;
     private float _messageUntil, _nextServerMessage, _nextResearchCommand;
-    public static bool LocalMenuOpen { get; private set; }
-    public int ToolTier => GobmineExpeditionRules.ToolTier(unlocked);
+	public static bool LocalMenuOpen { get; set; }
+	public int ToolTier => GobmineExpeditionRules.ToolTier(unlocked);
     public bool Has(GobmineResearch bit) => GobmineExpeditionRules.Has(unlocked,bit);
     private void Awake() { _inventory=GetComponent<PlayerInventory>(); }
     private void Update()
