@@ -108,8 +108,8 @@ public class Chunk : MonoBehaviour
         // Bake while the old collider is still active; assigning the prepared
         // collider during the eventual swap then avoids much of the cook cost.
         if (prepared.TriangleMaterials.Count > 0)
-            Physics.BakeMesh(mesh.GetInstanceID(), false);
-        return prepared;
+			Physics.BakeMesh(mesh.GetEntityId(), false);
+		return prepared;
     }
 
     public void PublishPreparedMesh(PreparedMesh prepared)

@@ -9,7 +9,7 @@ using Inventory;
 
 public class InventoryView : MonoBehaviour
 {
-	[SerializeField] private PlayerInventory playerInventory;
+	private PlayerInventory playerInventory;
 	[SerializeField] private SlotView slotPrefab;
 	[SerializeField] private Transform bagSlotParent;
 	[SerializeField] private Transform hotbarSlotParent;
@@ -25,7 +25,6 @@ public class InventoryView : MonoBehaviour
 
 	private List<SlotView> inventoryViews = new List<SlotView>();
 	private List<SlotView> hotbarViews = new List<SlotView>();
-	private List<SlotView> allViews = new List<SlotView>();
 	private InventoryContainer bag;
 	private InventoryContainer hotbar;
 	private InventoryContainer dragFromContainer;
@@ -39,40 +38,6 @@ public class InventoryView : MonoBehaviour
 
 	private void Awake()
 	{
-		if (playerInventory == null)
-		{
-			Debug.LogError("[InventoryView] Player Inventory is not assigned.", this);
-			enabled = false;
-			return;
-		}
-
-		bag = playerInventory.Bag;
-		hotbar = playerInventory.Hotbar;
-
-		for (int i = 0; i < playerInventory.BagSlotCount; i++)
-			inventoryViews.Add(Instantiate(slotPrefab, bagSlotParent));
-
-		for (int i = 0; i < playerInventory.HotbarSlotCount; i++)
-			hotbarViews.Add(Instantiate(slotPrefab, hotbarSlotParent));
-
-		allViews.AddRange(inventoryViews);
-		allViews.AddRange(hotbarViews);
-
-		foreach (SlotView view in allViews)
-		{
-			view.DragStarted += OnSlotDragStarted;
-			view.Dragged += OnSlotDragged;
-			view.DragEnded += OnSlotDragEnded;
-			view.DroppedOn += OnSlotDroppedOn;
-			view.Clicked += OnSlotClicked;
-		}
-
-		bag.SlotChanged += OnBagSlotChanged;
-		hotbar.SlotChanged += OnHotbarSlotChanged;
-		playerInventory.HotbarSlotUsed += OnHotbarSlotUsed;
-		playerInventory.StorageOpened += OnStorageOpened;
-		playerInventory.StorageClosed += OnStorageClosed;
-
 		if (storagePanel != null)
 			storagePanel.SetActive(false);
 
@@ -88,32 +53,85 @@ public class InventoryView : MonoBehaviour
 		dragIcon.raycastTarget = false;
 		dragIcon.gameObject.SetActive(false);
 
+		PlayerInventory.LocalChanged += Connect;
+		Connect(PlayerInventory.Local);
+	}
+
+	private void Connect(PlayerInventory player)
+	{
+		if (player == playerInventory) return;
+
+		Disconnect();
+		if (player == null) return;
+
+		playerInventory = player;
+		bag = player.Bag;
+		hotbar = player.Hotbar;
+
+		for (int i = 0; i < player.BagSlotCount; i++)
+			inventoryViews.Add(CreateSlot(bagSlotParent));
+
+		for (int i = 0; i < player.HotbarSlotCount; i++)
+			hotbarViews.Add(CreateSlot(hotbarSlotParent));
+
+		bag.SlotChanged += OnBagSlotChanged;
+		hotbar.SlotChanged += OnHotbarSlotChanged;
+		player.HotbarSlotUsed += OnHotbarSlotUsed;
+		player.StorageOpened += OnStorageOpened;
+		player.StorageClosed += OnStorageClosed;
+
 		RefreshAll();
+	}
+
+	private void Disconnect()
+	{
+		if (playerInventory == null) return;
+
+		CancelDrag();
+		Deselect();
+		playerInventory.CloseStorage();
+		StopListening();
+
+		foreach (SlotView view in inventoryViews)
+			Destroy(view.gameObject);
+
+		foreach (SlotView view in hotbarViews)
+			Destroy(view.gameObject);
+
+		inventoryViews.Clear();
+		hotbarViews.Clear();
+	}
+
+	private void StopListening()
+	{
+		if (playerInventory == null) return;
+
+		bag.SlotChanged -= OnBagSlotChanged;
+		hotbar.SlotChanged -= OnHotbarSlotChanged;
+		playerInventory.HotbarSlotUsed -= OnHotbarSlotUsed;
+		playerInventory.StorageOpened -= OnStorageOpened;
+		playerInventory.StorageClosed -= OnStorageClosed;
+
+		playerInventory = null;
+		bag = null;
+		hotbar = null;
+	}
+
+	private SlotView CreateSlot(Transform parent)
+	{
+		SlotView view = Instantiate(slotPrefab, parent);
+		view.DragStarted += OnSlotDragStarted;
+		view.Dragged += OnSlotDragged;
+		view.DragEnded += OnSlotDragEnded;
+		view.DroppedOn += OnSlotDroppedOn;
+		view.Clicked += OnSlotClicked;
+		return view;
 	}
 
 	private void OnDestroy()
 	{
-		foreach (SlotView view in allViews)
-		{
-			view.DragStarted -= OnSlotDragStarted;
-			view.Dragged -= OnSlotDragged;
-			view.DragEnded -= OnSlotDragEnded;
-			view.DroppedOn -= OnSlotDroppedOn;
-			view.Clicked -= OnSlotClicked;
-		}
-
-		if (bag != null)
-			bag.SlotChanged -= OnBagSlotChanged;
-
-		if (hotbar != null)
-			hotbar.SlotChanged -= OnHotbarSlotChanged;
-
-		if (playerInventory != null)
-		{
-			playerInventory.HotbarSlotUsed -= OnHotbarSlotUsed;
-			playerInventory.StorageOpened -= OnStorageOpened;
-			playerInventory.StorageClosed -= OnStorageClosed;
-		}
+		PlayerInventory.LocalChanged -= Connect;
+		StopListening();
 
 		if (storage != null)
 			storage.SlotChanged -= OnStorageSlotChanged;
