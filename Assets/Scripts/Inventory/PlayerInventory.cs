@@ -17,6 +17,8 @@ namespace Inventory
 		public event Action<int, ItemSO> HotbarSlotUsed;
 		public event Action<InventoryContainer> StorageOpened;
 		public event Action<InventoryContainer> StorageClosed;
+		public static PlayerInventory Local { get; private set; }
+		public static event Action<PlayerInventory> LocalChanged;
 
 		private InventoryContainer bag;
 		private InventoryContainer hotbar;
@@ -139,6 +141,27 @@ namespace Inventory
 		private void RelayItemsDropped(ItemSO item, int count)
 		{
 			ItemsDropped?.Invoke(item, count);
+		}
+
+		public void MakeLocal()
+		{
+			if (Local == this) return;
+
+			Local = this;
+			LocalChanged?.Invoke(this);
+		}
+
+		public void ClearLocal()
+		{
+			if (Local != this) return;
+
+			Local = null;
+			LocalChanged?.Invoke(null);
+		}
+
+		private void OnDestroy()
+		{
+			ClearLocal();
 		}
 
 	}
