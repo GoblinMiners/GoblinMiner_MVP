@@ -892,6 +892,7 @@ GameObject:
   - component: {fileID: 1015796114}
   - component: {fileID: 1015796115}
   - component: {fileID: 1015796116}
+  - component: {fileID: 1015796117}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -997,7 +998,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 71f1d837d0f3f8b47b855fb61744c10b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ItemPickup
-  playerInventory: {fileID: 1015796111}
 --- !u!114 &1015796111
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1078,6 +1078,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1829cb82f71a3e54e9d53800154522b9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: GoblinMiner.Inventory::Inventory.OfflineLocalPlayer
+--- !u!114 &1015796117
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1015796105}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62015b6c9a904f54f96cd669b96cfa8d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GoblinMiner.Inventory::ItemDropSpawner
+  dropDistance: 1.5
+  dropHeight: 1
 --- !u!1 &1539213243
 GameObject:
   m_ObjectHideFlags: 0
@@ -1409,6 +1423,30 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 704347029992594958, guid: 7f60ab0838b81914d8c29c716671c66d, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 836629827878591289, guid: 7f60ab0838b81914d8c29c716671c66d, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 836629827878591289, guid: 7f60ab0838b81914d8c29c716671c66d, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 836629827878591289, guid: 7f60ab0838b81914d8c29c716671c66d, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 836629827878591289, guid: 7f60ab0838b81914d8c29c716671c66d, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 836629827878591289, guid: 7f60ab0838b81914d8c29c716671c66d, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 836629827878591289, guid: 7f60ab0838b81914d8c29c716671c66d, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}

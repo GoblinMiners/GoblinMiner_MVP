@@ -177,13 +177,7 @@ public class InventoryView : MonoBehaviour
 
 		for (int i = 0; i < storage.SlotCount; i++)
 		{
-			SlotView view = Instantiate(slotPrefab, storageSlotParent);
-			view.DragStarted += OnSlotDragStarted;
-			view.Dragged += OnSlotDragged;
-			view.DragEnded += OnSlotDragEnded;
-			view.DroppedOn += OnSlotDroppedOn;
-			view.Clicked += OnSlotClicked;
-			storageViews.Add(view);
+			storageViews.Add(CreateSlot(storageSlotParent));
 			OnStorageSlotChanged(i);
 		}
 
