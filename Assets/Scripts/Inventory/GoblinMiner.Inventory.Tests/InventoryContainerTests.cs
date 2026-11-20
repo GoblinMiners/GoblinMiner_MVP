@@ -198,5 +198,45 @@ public class InventoryContainerTests
 		Assert.AreEqual(rope, container.GetItem(1));
 	}
 
+	[Test]
+	public void SetSlot_OverwritesSlotAndAnnounces()
+	{
+		var container = new InventoryContainer(2);
+		container.AddItem(ore, 4);
 
+		int announcedIndex = -1;
+		container.SlotChanged += index => announcedIndex = index;
+
+		container.SetSlot(0, rope, 2);
+
+		Assert.AreEqual(rope, container.GetItem(0));
+		Assert.AreEqual(2, container.GetCount(0));
+		Assert.AreEqual(0, announcedIndex);
+	}
+
+	[Test]
+	public void SetSlot_NoItem_EmptiesSlot()
+	{
+		var container = new InventoryContainer(1);
+		container.AddItem(ore, 4);
+
+		container.SetSlot(0, null, 0);
+
+		Assert.IsNull(container.GetItem(0));
+		Assert.AreEqual(0, container.GetCount(0));
+	}
+
+	[Test]
+	public void SetSlot_IndexOutOfRange_ChangesNothing()
+	{
+		var container = new InventoryContainer(1);
+
+		bool announced = false;
+		container.SlotChanged += index => announced = true;
+
+		container.SetSlot(5, ore, 1);
+
+		Assert.IsNull(container.GetItem(0));
+		Assert.IsFalse(announced);
+	}
 }

@@ -3,19 +3,28 @@ using UnityEngine;
 
 namespace Inventory
 {
+	public struct SlotData
+	{
+		public int itemId;
+		public int count;
+	}
+
 	[RequireComponent(typeof(PlayerInventory))]
 	public class InventoryNetwork : NetworkBehaviour
 	{
-		[Tooltip("The InventoryUI prefab. Only created for the player at this computer.")]
 		[SerializeField] private GameObject inventoryUIPrefab;
 
 		private PlayerInventory inventory;
 		private GameObject inventoryUI;
 		private InventoryWindow window;
 
+		private readonly SyncList<SlotData> bagSlots = new SyncList<SlotData>();
+		private readonly SyncList<SlotData> hotbarSlots = new SyncList<SlotData>();
+
 		private void Awake()
 		{
 			inventory = GetComponent<PlayerInventory>();
+			syncMode = SyncMode.Owner;
 		}
 
 		public override void OnStartLocalPlayer()
