@@ -74,6 +74,12 @@ public sealed class PlayerJumpBuffer
         return PlayerMotorRules.Finite(now) && _jumpAvailable && now >= _pressedAt && now >= _groundedAt &&
             now - _pressedAt <= Mathf.Max(0f, bufferSeconds) && now - _groundedAt <= Mathf.Max(0f, coyoteSeconds);
     }
+    /// <summary>A press within the window, regardless of ground state (used for ledge climbs).</summary>
+    public bool PressedWithin(float now, float bufferSeconds)
+    {
+        return PlayerMotorRules.Finite(now) && now >= _pressedAt && now - _pressedAt <= Mathf.Max(0f, bufferSeconds);
+    }
+    public void ClearPress() { _pressedAt = float.NegativeInfinity; }
     public void Consume() { _pressedAt = float.NegativeInfinity; _jumpAvailable = false; }
     public void Reset() { _pressedAt = _groundedAt = float.NegativeInfinity; _jumpAvailable = false; }
 }
