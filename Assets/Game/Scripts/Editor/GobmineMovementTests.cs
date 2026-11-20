@@ -62,6 +62,15 @@ public static class GobmineMovementTests
         {
             var b = new PlayerJumpBuffer(); b.Grounded(2f); b.Press(2f); b.Reset(); Assert(!b.CanConsume(2f, 0.12f, 0.1f));
         });
+        Check("Ledge climb accepts a recent press even in mid-air", () =>
+        {
+            var b = new PlayerJumpBuffer(); b.Press(5f); Assert(b.PressedWithin(5.05f, 0.12f));
+            b.ClearPress(); Assert(!b.PressedWithin(5.05f, 0.12f));
+        });
+        Check("Old press is not a ledge climb", () =>
+        {
+            var b = new PlayerJumpBuffer(); b.Press(5f); Assert(!b.PressedWithin(5.5f, 0.12f));
+        });
         Check("Swept bounds cover body and downward displacement", () =>
         {
             Bounds b = PlayerMotorRules.SweptBounds(new Vector3(3.9f, 1f, 0f), 0.5f, 2f, new Vector3(0.5f, -1f, 0f), 0.3f, 0.15f, 0.05f);
@@ -164,6 +173,40 @@ public static class GobmineMovementTests
                 PlayerMovement p = Motor(scene, objects, new Vector3(-1f, 1.05f, 0f));
                 Steps(p, Vector3.zero, 30); Steps(p, Vector3.right * 2f, 100);
                 Assert(p.transform.position.x > 0.8f && p.IsGrounded); Near(p.transform.position.y, 1f, 0.15f);
+            }); Clear(objects, meshes);
+            Check("Falling toward a ledge grabs it, hangs without gravity, then climbs on top", () =>
+            {
+                Box(scene, objects, new Vector3(0f, -0.5f, 0f), new Vector3(20f, 1f, 20f));
+                Box(scene, objects, new Vector3(2f, 1.2f, 0f), new Vector3(1f, 2.4f, 6f)); // top at y=2.4, face at x=1.5
+                PlayerMovement p = Motor(scene, objects, new Vector3(0.6f, 2.6f, 0f));
+                bool grabbed = false;
+                for (int i = 0; i < 150 && !grabbed; i++) { Step(p, Vector3.right * 3f); grabbed = State(p) == PlayerMotorState.LedgeHang; }
+                Assert(grabbed);
+                float hangY = p.transform.position.y;
+                Steps(p, Vector3.zero, 20);
+                Assert(State(p) == PlayerMotorState.LedgeHang); Near(p.transform.position.y, hangY, 0.05f);
+                PressJump(p); Steps(p, Vector3.zero, 120);
+                Assert(State(p) == PlayerMotorState.Normal && p.IsGrounded);
+                Assert(p.transform.position.y > 3.3f && p.transform.position.x > 1.5f);
+            }); Clear(objects, meshes);
+            Check("No input toward the wall means no grab (you can choose to fall)", () =>
+            {
+                Box(scene, objects, new Vector3(0f, -0.5f, 0f), new Vector3(20f, 1f, 20f));
+                Box(scene, objects, new Vector3(1.6f, 1.2f, 0f), new Vector3(1f, 2.4f, 6f));
+                PlayerMovement p = Motor(scene, objects, new Vector3(0.65f, 2.6f, 0f));
+                for (int i = 0; i < 150; i++) { Step(p, Vector3.zero); Assert(State(p) != PlayerMotorState.LedgeHang); }
+                Assert(p.IsGrounded);
+            }); Clear(objects, meshes);
+            Check("Dive launches forward, belly-slides, then gets back up", () =>
+            {
+                Box(scene, objects, new Vector3(0f, -0.5f, 0f), new Vector3(40f, 1f, 20f));
+                PlayerMovement p = Motor(scene, objects, new Vector3(0f, 1.05f, 0f));
+                Steps(p, Vector3.zero, 40);
+                Field(p, "_divePressed", true); Step(p, Vector3.right * 5f);
+                Assert(State(p) == PlayerMotorState.Diving && p.PlanarVelocity.x > 7f);
+                bool slid = false;
+                for (int i = 0; i < 300; i++) { Step(p, Vector3.zero); slid |= State(p) == PlayerMotorState.Sliding; }
+                Assert(slid && State(p) == PlayerMotorState.Normal && p.IsGrounded && p.transform.position.x > 2f);
             });
         }
         finally { Clear(objects, meshes); if (scene.IsValid()) SceneManager.UnloadSceneAsync(scene); }
@@ -205,6 +248,8 @@ public static class GobmineMovementTests
     }
     private static void Field(PlayerMovement p, string name, object value)
         => typeof(PlayerMovement).GetField(name, PrivateInstance).SetValue(p, value);
+    private static PlayerMotorState State(PlayerMovement p)
+        => (PlayerMotorState)typeof(PlayerMovement).GetField("_state", PrivateInstance).GetValue(p);
     private static void PressJump(PlayerMovement p)
         => ((PlayerJumpBuffer)typeof(PlayerMovement).GetField("_jumpBuffer", PrivateInstance).GetValue(p)).Press(Time.time);
     private static void Step(PlayerMovement p, Vector3 velocity)
