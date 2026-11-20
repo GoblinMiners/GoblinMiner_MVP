@@ -54,6 +54,33 @@ namespace Inventory
 
 			base.OnStopLocalPlayer();
 		}
+		public override void OnStartServer()
+		{
+			base.OnStartServer();
+
+			CopyAll(inventory.Bag, bagSlots);
+			CopyAll(inventory.Hotbar, hotbarSlots);
+
+			Debug.Log($"[InventoryNetwork] Server filled {bagSlots.Count} bag slots and {hotbarSlots.Count} hotbar slots.");   // Don't forget to DELETE ME!!!
+		}
+
+		private static void CopyAll(InventoryContainer container, SyncList<SlotData> list)
+		{
+			list.Clear();
+
+			for (int i = 0; i < container.SlotCount; i++)
+				list.Add(ToSlotData(container, i));
+		}
+		private static SlotData ToSlotData(InventoryContainer container, int index)
+		{
+			ItemSO item = container.GetItem(index);
+
+			return new SlotData
+			{
+				itemId = item != null ? item.itemId : 0,
+				count = container.GetCount(index)
+			};
+		}
 
 		private void OnBagOpenChanged(bool isOpen)
 		{
