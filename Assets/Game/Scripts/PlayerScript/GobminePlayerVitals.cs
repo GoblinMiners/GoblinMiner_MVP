@@ -70,7 +70,10 @@ public sealed class GobminePlayerVitals:NetworkBehaviour
         bool ready=world.TryPreparePlayerCollision(safe,out reason);
         bool grounded=ready && Grounded(body);
         float drop;
-        bool landed=_fall.Sample(body.center.y,grounded || water,!ready,dt,out drop);
+        // Hanging on / climbing a ledge counts as support, so catching a ledge resets the fall.
+        PlayerMotorState pose=_motor!=null?_motor.State:PlayerMotorState.Normal;
+        bool onLedge=pose==PlayerMotorState.LedgeHang || pose==PlayerMotorState.LedgeClimb;
+        bool landed=_fall.Sample(body.center.y,grounded || water || onLedge,!ready,dt,out drop);
         if(landed && drop>s.safeFallMetres)
         {
             float damage=GobmineExpeditionRules.FallDamage(drop,_motor!=null?_motor.gravity:-24f,_motor!=null?_motor.terminalFallSpeed:25f,

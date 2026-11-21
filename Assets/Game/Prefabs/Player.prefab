@@ -227,7 +227,7 @@ MonoBehaviour:
   gravity: -24
   terminalFallSpeed: 25
   jumpBufferSeconds: 0.12
-  coyoteSeconds: 0.1
+  coyoteSeconds: 0.15
   groundSnapDistance: 0.15
   maximumMotorDeltaTime: 0.05
   inputActions: {fileID: -944628639613478452, guid: 1a4911f71258f9c49a819a3cd92322a8, type: 3}
