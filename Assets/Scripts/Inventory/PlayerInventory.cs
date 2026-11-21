@@ -66,7 +66,7 @@ namespace Inventory
 			leftover = Bag.FillEmptySlots(item, leftover);
 			leftover = Hotbar.FillEmptySlots(item, leftover);
 
-			if (leftover > 0 && item != null)
+			if (leftover > 0)
 				Debug.Log("Inventory full, could not add " + leftover + " " + item.itemName);
 
 			return leftover;

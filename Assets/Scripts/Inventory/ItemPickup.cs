@@ -4,17 +4,19 @@ using Inventory;
 
 public class ItemPickup : MonoBehaviour
 {
-	[SerializeField] private PlayerInventory playerInventory;
+	private PlayerInventory playerInventory;
 
 	private void Awake()
 	{
+		playerInventory = GetComponentInParent<PlayerInventory>();
+
 		if (playerInventory == null)
-			Debug.LogError("[ItemPickup] Player Inventory is not assigned.", this);
+			Debug.LogError("[ItemPickup] Needs a PlayerInventory on this object or a parent.", this);
 	}
 
 	private void OnTriggerEnter(Collider other)
 	{
-		if (playerInventory == null) return;
+		if (playerInventory == null || playerInventory != PlayerInventory.Local) return;
 
 		WorldItem worldItem = other.GetComponent<WorldItem>();
 		if (worldItem == null) return;

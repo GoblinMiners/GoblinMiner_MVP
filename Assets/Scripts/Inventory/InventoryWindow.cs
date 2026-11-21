@@ -26,8 +26,6 @@ public class InventoryWindow : MonoBehaviour
 		else if (IsOpen && Input.GetKeyDown(closeKey))
 			SetOpen(false);
 
-		if (Input.GetKeyDown(KeyCode.L))
-			Debug.Log("Over panel: " + IsPointerOverPanel());
 	}
 
 	public void SetOpen(bool open)

@@ -17,6 +17,7 @@ public class StorageBox : MonoBehaviour, IInteractable
 	public void Interact(GameObject interactor)
 	{
 		PlayerInventory player = interactor.GetComponent<PlayerInventory>();
+
 		if (player == null)
 		{
 			Debug.LogWarning($"[StorageBox] {interactor.name} has no PlayerInventory, so it can't open {name}.", this);
@@ -24,6 +25,5 @@ public class StorageBox : MonoBehaviour, IInteractable
 		}
 
 		player.OpenStorage(container);
-		Debug.Log($"[StorageBox] {interactor.name} opened {name} ({container.SlotCount} slots)", this);
 	}
 }
