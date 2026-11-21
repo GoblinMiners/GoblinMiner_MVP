@@ -85,7 +85,7 @@ public static class GobmineMovementTools
             controller.stepOffset = Mathf.Min(0.3f, controller.height * 0.2f);
             controller.includeLayers = 0; controller.excludeLayers = 0;
             movement.enabled = true; movement.jumpHeight = 1.1f; movement.gravity = -24f;
-            movement.terminalFallSpeed = 25f; movement.jumpBufferSeconds = 0.12f; movement.coyoteSeconds = 0.1f;
+            movement.terminalFallSpeed = 25f; movement.jumpBufferSeconds = 0.12f; movement.coyoteSeconds = 0.15f;
             movement.groundSnapDistance = 0.15f; movement.maximumMotorDeltaTime = 0.05f;
             movement.guardTerrainStreaming = true; movement.rollbackSolidPenetration = true;
             if (movement.inputActions == null)
