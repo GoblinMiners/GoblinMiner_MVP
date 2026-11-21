@@ -61,7 +61,28 @@ namespace Inventory
 			CopyAll(inventory.Bag, bagSlots);
 			CopyAll(inventory.Hotbar, hotbarSlots);
 
-			Debug.Log($"[InventoryNetwork] Server filled {bagSlots.Count} bag slots and {hotbarSlots.Count} hotbar slots.");   // Don't forget to DELETE ME!!!
+			inventory.Bag.SlotChanged += OnServerBagSlotChanged;
+			inventory.Hotbar.SlotChanged += OnServerHotbarSlotChanged;
+		}
+
+		public override void OnStopServer()
+		{
+			inventory.Bag.SlotChanged -= OnServerBagSlotChanged;
+			inventory.Hotbar.SlotChanged -= OnServerHotbarSlotChanged;
+
+			base.OnStopServer();
+		}
+
+		private void OnServerBagSlotChanged(int index)
+		{
+			bagSlots[index] = ToSlotData(inventory.Bag, index);
+
+			Debug.Log($"[InventoryNetwork] Bag slot {index} is now item {bagSlots[index].itemId} x{bagSlots[index].count}");   // TEMP: delete after testing
+		}
+
+		private void OnServerHotbarSlotChanged(int index)
+		{
+			hotbarSlots[index] = ToSlotData(inventory.Hotbar, index);
 		}
 
 		private static void CopyAll(InventoryContainer container, SyncList<SlotData> list)
