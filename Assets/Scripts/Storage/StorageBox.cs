@@ -1,29 +1,31 @@
 using UnityEngine;
-using Inventory;
-
-
-public class StorageBox : MonoBehaviour, IInteractable
+namespace Inventory
 {
-	[Tooltip("Number of slots in this box. Customizable for different storage sizes")]
-	[SerializeField, Min(1)] private int slotCount = 24;
 
-	private InventoryContainer container;
 
-	private void Awake()
+	public class StorageBox : MonoBehaviour, IInteractable
 	{
-		container = new InventoryContainer(slotCount);
-	}
+		[Tooltip("Number of slots in this box. Customizable for different storage sizes")]
+		[SerializeField, Min(1)] private int slotCount = 24;
 
-	public void Interact(GameObject interactor)
-	{
-		PlayerInventory player = interactor.GetComponent<PlayerInventory>();
+		private InventoryContainer container;
 
-		if (player == null)
+		private void Awake()
 		{
-			Debug.LogWarning($"[StorageBox] {interactor.name} has no PlayerInventory, so it can't open {name}.", this);
-			return;
+			container = new InventoryContainer(slotCount);
 		}
 
-		player.OpenStorage(container);
+		public void Interact(GameObject interactor)
+		{
+			PlayerInventory player = interactor.GetComponent<PlayerInventory>();
+
+			if (player == null)
+			{
+				Debug.LogWarning($"[StorageBox] {interactor.name} has no PlayerInventory, so it can't open {name}.", this);
+				return;
+			}
+
+			player.OpenStorage(container);
+		}
 	}
 }

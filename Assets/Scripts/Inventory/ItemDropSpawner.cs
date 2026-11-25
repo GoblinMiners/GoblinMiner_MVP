@@ -1,63 +1,65 @@
 using UnityEngine;
-using Inventory;
-
-// *****NOTE TO REPLACE PROXY ITEMS WITH ITEMS ONCE THEY ARE MADE OR DELETE THIS FOR BETTER SCRIPT******
-[RequireComponent(typeof(PlayerInventory))]
-public class ItemDropSpawner : MonoBehaviour
+namespace Inventory
 {
-	private PlayerInventory playerInventory;
 
-	[Tooltip("How far in front of the player dropped items appear.")]
-	[SerializeField] private float dropDistance = 1.5f;
-
-	[Tooltip("How high above the player's base they appear, so they don't spawn in the floor.")]
-	[SerializeField] private float dropHeight = 1f;
-
-	private void OnEnable()
+	// *****NOTE TO REPLACE PROXY ITEMS WITH ITEMS ONCE THEY ARE MADE OR DELETE THIS FOR BETTER SCRIPT******
+	[RequireComponent(typeof(PlayerInventory))]
+	public class ItemDropSpawner : MonoBehaviour
 	{
-		playerInventory = GetComponent<PlayerInventory>();
-		if (playerInventory == null)
+		private PlayerInventory playerInventory;
+
+		[Tooltip("How far in front of the player dropped items appear.")]
+		[SerializeField] private float dropDistance = 1.5f;
+
+		[Tooltip("How high above the player's base they appear, so they don't spawn in the floor.")]
+		[SerializeField] private float dropHeight = 1f;
+
+		private void OnEnable()
 		{
-			Debug.LogError("[ItemDropSpawner] Needs a PlayerInventory on the same object.", this);
-			return;
-		}
-		
-		playerInventory.ItemsDropped += OnItemsDropped;
-	}
+			playerInventory = GetComponent<PlayerInventory>();
+			if (playerInventory == null)
+			{
+				Debug.LogError("[ItemDropSpawner] Needs a PlayerInventory on the same object.", this);
+				return;
+			}
 
-	private void OnDisable()
-	{
-		if (playerInventory != null)
-			playerInventory.ItemsDropped -= OnItemsDropped;
-	}
-
-	private void OnItemsDropped(ItemSO item, int count)
-	{
-		Vector3 spawnPoint = transform.position
-	+		transform.forward * dropDistance
-	+	Vector3.up * dropHeight;
-
-		GameObject dropped;
-
-		if (item.itemPrefab != null)
-		{
-			dropped = Instantiate(item.itemPrefab, spawnPoint, Quaternion.identity);
-		}
-		else
-		{
-			// *****NOTE JUST SPAWNS CUBES RIGHT NOW UNTIL ITEMS/PREFABS ARE BUILT AND ADDED******
-			dropped = GameObject.CreatePrimitive(PrimitiveType.Cube);
-			dropped.transform.position = spawnPoint;
-			dropped.transform.localScale = Vector3.one * 0.3f;
-			dropped.AddComponent<Rigidbody>();
+			playerInventory.ItemsDropped += OnItemsDropped;
 		}
 
-		WorldItem worldItem = dropped.GetComponent<WorldItem>();
-		if (worldItem == null)
-			worldItem = dropped.AddComponent<WorldItem>();
+		private void OnDisable()
+		{
+			if (playerInventory != null)
+				playerInventory.ItemsDropped -= OnItemsDropped;
+		}
 
-		worldItem.Setup(item, count);
+		private void OnItemsDropped(ItemSO item, int count)
+		{
+			Vector3 spawnPoint = transform.position
+		+ transform.forward * dropDistance
+		+ Vector3.up * dropHeight;
 
-		dropped.name = item.itemName + " x" + count;
+			GameObject dropped;
+
+			if (item.itemPrefab != null)
+			{
+				dropped = Instantiate(item.itemPrefab, spawnPoint, Quaternion.identity);
+			}
+			else
+			{
+				// *****NOTE JUST SPAWNS CUBES RIGHT NOW UNTIL ITEMS/PREFABS ARE BUILT AND ADDED******
+				dropped = GameObject.CreatePrimitive(PrimitiveType.Cube);
+				dropped.transform.position = spawnPoint;
+				dropped.transform.localScale = Vector3.one * 0.3f;
+				dropped.AddComponent<Rigidbody>();
+			}
+
+			WorldItem worldItem = dropped.GetComponent<WorldItem>();
+			if (worldItem == null)
+				worldItem = dropped.AddComponent<WorldItem>();
+
+			worldItem.Setup(item, count);
+
+			dropped.name = item.itemName + " x" + count;
+		}
 	}
 }

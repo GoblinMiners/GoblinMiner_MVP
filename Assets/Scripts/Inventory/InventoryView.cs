@@ -4,393 +4,395 @@ using System.Collections.Generic;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using TMPro;
-using Inventory;
-
-
-public class InventoryView : MonoBehaviour
+namespace Inventory
 {
-	private PlayerInventory playerInventory;
-	[SerializeField] private SlotView slotPrefab;
-	[SerializeField] private Transform bagSlotParent;
-	[SerializeField] private Transform hotbarSlotParent;
-	[SerializeField] private Image dragIcon;
-	[SerializeField] private TextMeshProUGUI dragAmountTxt;
-	[SerializeField] private InventoryWindow window;
-	[SerializeField] private ItemDetailsView detailsView;
-	[SerializeField] private float markerFlashTime = 0.3f;
-	[SerializeField] private SortControlsView sortControls;
-	[SerializeField] private SortControlsView storageSortControls;
-	[SerializeField] private GameObject storagePanel;
-	[SerializeField] private Transform storageSlotParent;
 
-	private List<SlotView> inventoryViews = new List<SlotView>();
-	private List<SlotView> hotbarViews = new List<SlotView>();
-	private InventoryContainer bag;
-	private InventoryContainer hotbar;
-	private InventoryContainer dragFromContainer;
-	private int dragFromIndex = -1;
-	private int dragAmount = 0;
-	private InventoryContainer selectedContainer;
-	private int selectedIndex = -1;
-	private Coroutine flashRoutine;
-	private InventoryContainer storage;
-	private List<SlotView> storageViews = new List<SlotView>();
 
-	private void Awake()
+	public class InventoryView : MonoBehaviour
 	{
-		if (storagePanel != null)
-			storagePanel.SetActive(false);
+		private PlayerInventory playerInventory;
+		[SerializeField] private SlotView slotPrefab;
+		[SerializeField] private Transform bagSlotParent;
+		[SerializeField] private Transform hotbarSlotParent;
+		[SerializeField] private Image dragIcon;
+		[SerializeField] private TextMeshProUGUI dragAmountTxt;
+		[SerializeField] private InventoryWindow window;
+		[SerializeField] private ItemDetailsView detailsView;
+		[SerializeField] private float markerFlashTime = 0.3f;
+		[SerializeField] private SortControlsView sortControls;
+		[SerializeField] private SortControlsView storageSortControls;
+		[SerializeField] private GameObject storagePanel;
+		[SerializeField] private Transform storageSlotParent;
 
-		if (sortControls != null)
-			sortControls.SortRequested += OnSortRequested;
+		private List<SlotView> inventoryViews = new List<SlotView>();
+		private List<SlotView> hotbarViews = new List<SlotView>();
+		private InventoryContainer bag;
+		private InventoryContainer hotbar;
+		private InventoryContainer dragFromContainer;
+		private int dragFromIndex = -1;
+		private int dragAmount = 0;
+		private InventoryContainer selectedContainer;
+		private int selectedIndex = -1;
+		private Coroutine flashRoutine;
+		private InventoryContainer storage;
+		private List<SlotView> storageViews = new List<SlotView>();
 
-		if (storageSortControls != null)
-			storageSortControls.SortRequested += OnStorageSortRequested;
-
-		if (window != null)
-			window.OpenStateChanged += OnWindowOpenStateChanged;
-
-		dragIcon.raycastTarget = false;
-		dragIcon.gameObject.SetActive(false);
-
-		PlayerInventory.LocalChanged += Connect;
-		Connect(PlayerInventory.Local);
-	}
-
-	private void Connect(PlayerInventory player)
-	{
-		if (player == playerInventory) return;
-
-		Disconnect();
-		if (player == null) return;
-
-		playerInventory = player;
-		bag = player.Bag;
-		hotbar = player.Hotbar;
-
-		for (int i = 0; i < player.BagSlotCount; i++)
-			inventoryViews.Add(CreateSlot(bagSlotParent));
-
-		for (int i = 0; i < player.HotbarSlotCount; i++)
-			hotbarViews.Add(CreateSlot(hotbarSlotParent));
-
-		bag.SlotChanged += OnBagSlotChanged;
-		hotbar.SlotChanged += OnHotbarSlotChanged;
-		player.HotbarSlotUsed += OnHotbarSlotUsed;
-		player.StorageOpened += OnStorageOpened;
-		player.StorageClosed += OnStorageClosed;
-
-		RefreshAll();
-	}
-
-	private void Disconnect()
-	{
-		if (playerInventory == null) return;
-
-		CancelDrag();
-		Deselect();
-		playerInventory.CloseStorage();
-		StopListening();
-
-		foreach (SlotView view in inventoryViews)
-			Destroy(view.gameObject);
-
-		foreach (SlotView view in hotbarViews)
-			Destroy(view.gameObject);
-
-		inventoryViews.Clear();
-		hotbarViews.Clear();
-	}
-
-	private void StopListening()
-	{
-		if (playerInventory == null) return;
-
-		bag.SlotChanged -= OnBagSlotChanged;
-		hotbar.SlotChanged -= OnHotbarSlotChanged;
-		playerInventory.HotbarSlotUsed -= OnHotbarSlotUsed;
-		playerInventory.StorageOpened -= OnStorageOpened;
-		playerInventory.StorageClosed -= OnStorageClosed;
-
-		playerInventory = null;
-		bag = null;
-		hotbar = null;
-	}
-
-	private SlotView CreateSlot(Transform parent)
-	{
-		SlotView view = Instantiate(slotPrefab, parent);
-		view.DragStarted += OnSlotDragStarted;
-		view.Dragged += OnSlotDragged;
-		view.DragEnded += OnSlotDragEnded;
-		view.DroppedOn += OnSlotDroppedOn;
-		view.Clicked += OnSlotClicked;
-		return view;
-	}
-
-	private void OnDestroy()
-	{
-		PlayerInventory.LocalChanged -= Connect;
-		StopListening();
-
-		if (storage != null)
-			storage.SlotChanged -= OnStorageSlotChanged;
-
-		if (sortControls != null)
-			sortControls.SortRequested -= OnSortRequested;
-
-		if (storageSortControls != null)
-			storageSortControls.SortRequested -= OnStorageSortRequested;
-
-		if (window != null)
-			window.OpenStateChanged -= OnWindowOpenStateChanged;
-	}
-
-	private void OnBagSlotChanged(int index)
-	{
-		if (index < 0 || index >= inventoryViews.Count) return;
-		inventoryViews[index].Refresh(bag.GetItem(index), bag.GetCount(index));
-
-		if (selectedContainer == bag && selectedIndex == index)
-			ShowSelected();
-	}
-
-	private void OnHotbarSlotChanged(int index)
-	{
-		if (index < 0 || index >= hotbarViews.Count) return;
-		hotbarViews[index].Refresh(hotbar.GetItem(index), hotbar.GetCount(index));
-
-		if (selectedContainer == hotbar && selectedIndex == index)
-			ShowSelected();
-	}
-
-	private void OnStorageOpened(InventoryContainer opened)
-	{
-		if (storagePanel == null || storageSlotParent == null)
+		private void Awake()
 		{
-			Debug.LogError("[InventoryView] Storage Panel or Storage Slot Parent is not assigned.", this);
-			return;
+			if (storagePanel != null)
+				storagePanel.SetActive(false);
+
+			if (sortControls != null)
+				sortControls.SortRequested += OnSortRequested;
+
+			if (storageSortControls != null)
+				storageSortControls.SortRequested += OnStorageSortRequested;
+
+			if (window != null)
+				window.OpenStateChanged += OnWindowOpenStateChanged;
+
+			dragIcon.raycastTarget = false;
+			dragIcon.gameObject.SetActive(false);
+
+			PlayerInventory.LocalChanged += Connect;
+			Connect(PlayerInventory.Local);
 		}
 
-		storage = opened;
-		storage.SlotChanged += OnStorageSlotChanged;
-
-		for (int i = 0; i < storage.SlotCount; i++)
+		private void Connect(PlayerInventory player)
 		{
-			storageViews.Add(CreateSlot(storageSlotParent));
-			OnStorageSlotChanged(i);
+			if (player == playerInventory) return;
+
+			Disconnect();
+			if (player == null) return;
+
+			playerInventory = player;
+			bag = player.Bag;
+			hotbar = player.Hotbar;
+
+			for (int i = 0; i < player.BagSlotCount; i++)
+				inventoryViews.Add(CreateSlot(bagSlotParent));
+
+			for (int i = 0; i < player.HotbarSlotCount; i++)
+				hotbarViews.Add(CreateSlot(hotbarSlotParent));
+
+			bag.SlotChanged += OnBagSlotChanged;
+			hotbar.SlotChanged += OnHotbarSlotChanged;
+			player.HotbarSlotUsed += OnHotbarSlotUsed;
+			player.StorageOpened += OnStorageOpened;
+			player.StorageClosed += OnStorageClosed;
+
+			RefreshAll();
 		}
 
-		storagePanel.SetActive(true);
+		private void Disconnect()
+		{
+			if (playerInventory == null) return;
 
-		if (window != null)
-			window.SetOpen(true);
-	}
-
-	private void OnStorageClosed(InventoryContainer closed)
-	{
-		if (selectedContainer == storage)
+			CancelDrag();
 			Deselect();
+			playerInventory.CloseStorage();
+			StopListening();
 
-		if (storage != null)
-			storage.SlotChanged -= OnStorageSlotChanged;
+			foreach (SlotView view in inventoryViews)
+				Destroy(view.gameObject);
 
-		foreach (SlotView view in storageViews)
-			Destroy(view.gameObject);
+			foreach (SlotView view in hotbarViews)
+				Destroy(view.gameObject);
 
-		storageViews.Clear();
-		storage = null;
+			inventoryViews.Clear();
+			hotbarViews.Clear();
+		}
 
-		if (storagePanel != null)
-			storagePanel.SetActive(false);
-	}
+		private void StopListening()
+		{
+			if (playerInventory == null) return;
 
-	private void OnStorageSlotChanged(int index)
-	{
-		if (index < 0 || index >= storageViews.Count) return;
-		storageViews[index].Refresh(storage.GetItem(index), storage.GetCount(index));
+			bag.SlotChanged -= OnBagSlotChanged;
+			hotbar.SlotChanged -= OnHotbarSlotChanged;
+			playerInventory.HotbarSlotUsed -= OnHotbarSlotUsed;
+			playerInventory.StorageOpened -= OnStorageOpened;
+			playerInventory.StorageClosed -= OnStorageClosed;
 
-		if (selectedContainer == storage && selectedIndex == index)
+			playerInventory = null;
+			bag = null;
+			hotbar = null;
+		}
+
+		private SlotView CreateSlot(Transform parent)
+		{
+			SlotView view = Instantiate(slotPrefab, parent);
+			view.DragStarted += OnSlotDragStarted;
+			view.Dragged += OnSlotDragged;
+			view.DragEnded += OnSlotDragEnded;
+			view.DroppedOn += OnSlotDroppedOn;
+			view.Clicked += OnSlotClicked;
+			return view;
+		}
+
+		private void OnDestroy()
+		{
+			PlayerInventory.LocalChanged -= Connect;
+			StopListening();
+
+			if (storage != null)
+				storage.SlotChanged -= OnStorageSlotChanged;
+
+			if (sortControls != null)
+				sortControls.SortRequested -= OnSortRequested;
+
+			if (storageSortControls != null)
+				storageSortControls.SortRequested -= OnStorageSortRequested;
+
+			if (window != null)
+				window.OpenStateChanged -= OnWindowOpenStateChanged;
+		}
+
+		private void OnBagSlotChanged(int index)
+		{
+			if (index < 0 || index >= inventoryViews.Count) return;
+			inventoryViews[index].Refresh(bag.GetItem(index), bag.GetCount(index));
+
+			if (selectedContainer == bag && selectedIndex == index)
+				ShowSelected();
+		}
+
+		private void OnHotbarSlotChanged(int index)
+		{
+			if (index < 0 || index >= hotbarViews.Count) return;
+			hotbarViews[index].Refresh(hotbar.GetItem(index), hotbar.GetCount(index));
+
+			if (selectedContainer == hotbar && selectedIndex == index)
+				ShowSelected();
+		}
+
+		private void OnStorageOpened(InventoryContainer opened)
+		{
+			if (storagePanel == null || storageSlotParent == null)
+			{
+				Debug.LogError("[InventoryView] Storage Panel or Storage Slot Parent is not assigned.", this);
+				return;
+			}
+
+			storage = opened;
+			storage.SlotChanged += OnStorageSlotChanged;
+
+			for (int i = 0; i < storage.SlotCount; i++)
+			{
+				storageViews.Add(CreateSlot(storageSlotParent));
+				OnStorageSlotChanged(i);
+			}
+
+			storagePanel.SetActive(true);
+
+			if (window != null)
+				window.SetOpen(true);
+		}
+
+		private void OnStorageClosed(InventoryContainer closed)
+		{
+			if (selectedContainer == storage)
+				Deselect();
+
+			if (storage != null)
+				storage.SlotChanged -= OnStorageSlotChanged;
+
+			foreach (SlotView view in storageViews)
+				Destroy(view.gameObject);
+
+			storageViews.Clear();
+			storage = null;
+
+			if (storagePanel != null)
+				storagePanel.SetActive(false);
+		}
+
+		private void OnStorageSlotChanged(int index)
+		{
+			if (index < 0 || index >= storageViews.Count) return;
+			storageViews[index].Refresh(storage.GetItem(index), storage.GetCount(index));
+
+			if (selectedContainer == storage && selectedIndex == index)
+				ShowSelected();
+		}
+		private void OnHotbarSlotUsed(int index, ItemSO item)
+		{
+			if (flashRoutine != null)
+				StopCoroutine(flashRoutine);
+
+			flashRoutine = StartCoroutine(FlashMarker(index));
+		}
+		private IEnumerator FlashMarker(int index)
+		{
+			for (int i = 0; i < hotbarViews.Count; i++)
+				hotbarViews[i].ShowActiveMarker(i == index);
+
+			yield return new WaitForSeconds(markerFlashTime);
+
+			if (index < hotbarViews.Count)
+				hotbarViews[index].ShowActiveMarker(false);
+
+			flashRoutine = null;
+		}
+
+		private void RefreshAll()
+		{
+			for (int i = 0; i < inventoryViews.Count; i++)
+				OnBagSlotChanged(i);
+
+			for (int i = 0; i < hotbarViews.Count; i++)
+				OnHotbarSlotChanged(i);
+		}
+
+		private InventoryContainer ContainerOf(SlotView view)
+		{
+			if (inventoryViews.Contains(view)) return bag;
+			if (hotbarViews.Contains(view)) return hotbar;
+			if (storageViews.Contains(view)) return storage;
+			return null;
+		}
+
+		private int IndexOf(SlotView view)
+		{
+			int index = inventoryViews.IndexOf(view);
+			if (index >= 0) return index;
+			index = hotbarViews.IndexOf(view);
+			if (index >= 0) return index;
+			return storageViews.IndexOf(view);
+		}
+
+		private void OnSlotDragStarted(SlotView view, PointerEventData.InputButton button)
+		{
+			InventoryContainer from = ContainerOf(view);
+			if (from == null) return;
+
+			int index = IndexOf(view);
+			ItemSO item = from.GetItem(index);
+			int count = from.GetCount(index);
+			if (item == null) return;
+
+			bool shiftHeld = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+
+			if (button == PointerEventData.InputButton.Left && shiftHeld)
+				dragAmount = 1;
+			else if (button == PointerEventData.InputButton.Left)
+				dragAmount = count;
+			else if (button == PointerEventData.InputButton.Right)
+				dragAmount = Mathf.CeilToInt(count / 2f);
+			else
+				return;
+
+			dragFromContainer = from;
+			dragFromIndex = index;
+			dragIcon.sprite = item.icon;
+			dragAmountTxt.text = dragAmount.ToString();
+			dragIcon.gameObject.SetActive(true);
+
+			if (detailsView != null)
+				detailsView.Hide();
+
+			Deselect();
+		}
+
+		private void OnSlotDragged(Vector2 screenPosition)
+		{
+			if (dragFromIndex < 0) return;
+			dragIcon.transform.position = screenPosition;
+		}
+
+		private void OnSlotDragEnded(SlotView view)
+		{
+			if (dragFromContainer != null && !window.IsPointerOverPanel())
+				playerInventory.DropFromSlot(dragFromContainer, dragFromIndex, dragAmount);
+
+			CancelDrag();
+		}
+		private void CancelDrag()
+		{
+			dragFromContainer = null;
+			dragFromIndex = -1;
+			dragAmount = 0;
+			dragIcon.gameObject.SetActive(false);
+		}
+
+
+		private void OnSlotDroppedOn(SlotView view)
+		{
+			if (dragFromContainer == null) return;
+
+			playerInventory.MoveItem(dragFromContainer, dragFromIndex,
+			ContainerOf(view), IndexOf(view), dragAmount);
+		}
+
+		private void OnWindowOpenStateChanged(bool isOpen)
+		{
+			if (isOpen) return;
+
+			if (detailsView != null)
+				detailsView.Hide();
+
+			CancelDrag();
+			Deselect();
+			playerInventory.CloseStorage();
+		}
+
+		private void OnSlotClicked(SlotView view, PointerEventData.InputButton button)
+		{
+			if (button != PointerEventData.InputButton.Left) return;
+			Select(ContainerOf(view), IndexOf(view));
+		}
+
+		private void Select(InventoryContainer container, int index)
+		{
+			SlotView previous = ViewOf(selectedContainer, selectedIndex);
+			if (previous != null)
+				previous.SetHighlighted(false);
+
+			selectedContainer = container;
+			selectedIndex = index;
+
+			SlotView current = ViewOf(selectedContainer, selectedIndex);
+			if (current != null)
+				current.SetHighlighted(true);
+
 			ShowSelected();
-	}
-	private void OnHotbarSlotUsed(int index, ItemSO item)
-	{
-		if (flashRoutine != null)
-			StopCoroutine(flashRoutine);
+		}
 
-		flashRoutine = StartCoroutine(FlashMarker(index));
-	}
-	private IEnumerator FlashMarker(int index)
-	{
-		for (int i = 0; i < hotbarViews.Count; i++)
-			hotbarViews[i].ShowActiveMarker(i == index);
+		private SlotView ViewOf(InventoryContainer container, int index)
+		{
+			List<SlotView> views = null;
+			if (container == bag) views = inventoryViews;
+			else if (container == hotbar) views = hotbarViews;
+			else if (storage != null && container == storage) views = storageViews;
 
-		yield return new WaitForSeconds(markerFlashTime); 
+			if (views == null || index < 0 || index >= views.Count) return null;
+			return views[index];
+		}
 
-		if (index < hotbarViews.Count)
-			hotbarViews[index].ShowActiveMarker(false);
+		private void Deselect()
+		{
+			Select(null, -1);
+		}
 
-		flashRoutine = null;
-	}
+		private void OnSortRequested(SortOrder order)
+		{
+			Deselect();
+			playerInventory.SortBag(order);
+		}
 
-	private void RefreshAll()
-	{
-		for (int i = 0; i < inventoryViews.Count; i++)
-			OnBagSlotChanged(i);
+		private void OnStorageSortRequested(SortOrder order)
+		{
+			Deselect();
+			playerInventory.SortStorage(order);
+		}
+		private void ShowSelected()
+		{
+			if (detailsView == null) return;
 
-		for (int i = 0; i < hotbarViews.Count; i++)
-			OnHotbarSlotChanged(i);
-	}
+			ItemSO item = null;
+			if (selectedContainer != null)
+				item = selectedContainer.GetItem(selectedIndex);
 
-	private InventoryContainer ContainerOf(SlotView view)
-	{
-		if (inventoryViews.Contains(view)) return bag;
-		if (hotbarViews.Contains(view)) return hotbar;
-		if (storageViews.Contains(view)) return storage;
-		return null;
-	}
-
-	private int IndexOf(SlotView view)
-	{
-		int index = inventoryViews.IndexOf(view);
-		if (index >= 0) return index;
-		index = hotbarViews.IndexOf(view);
-		if (index >= 0) return index;
-		return storageViews.IndexOf(view);
-	}
-
-	private void OnSlotDragStarted(SlotView view, PointerEventData.InputButton button)
-	{
-		InventoryContainer from = ContainerOf(view);
-		if (from == null) return;
-
-		int index = IndexOf(view);
-		ItemSO item = from.GetItem(index);
-		int count = from.GetCount(index);
-		if (item == null) return;
-
-		bool shiftHeld = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-
-		if (button == PointerEventData.InputButton.Left && shiftHeld)
-			dragAmount = 1;
-		else if (button == PointerEventData.InputButton.Left)
-			dragAmount = count;
-		else if (button == PointerEventData.InputButton.Right)
-			dragAmount = Mathf.CeilToInt(count / 2f);
-		else
-			return;
-			  
-		dragFromContainer = from;
-		dragFromIndex = index;
-		dragIcon.sprite = item.icon;
-		dragAmountTxt.text = dragAmount.ToString();
-		dragIcon.gameObject.SetActive(true);
-
-		if (detailsView != null)
-			detailsView.Hide();
-
-		Deselect();
-	}
-
-	private void OnSlotDragged(Vector2 screenPosition)
-	{
-		if (dragFromIndex < 0) return;
-		dragIcon.transform.position = screenPosition;
-	}
-
-	private void OnSlotDragEnded(SlotView view)
-	{
-		if (dragFromContainer != null && !window.IsPointerOverPanel())
-			playerInventory.DropFromSlot(dragFromContainer, dragFromIndex, dragAmount);
-
-		CancelDrag();
-	}
-	private void CancelDrag()
-	{
-		dragFromContainer = null;
-		dragFromIndex = -1;
-		dragAmount = 0;
-		dragIcon.gameObject.SetActive(false);
-	}
-
-
-	private void OnSlotDroppedOn(SlotView view)
-	{
-		if (dragFromContainer == null) return;
-
-		playerInventory.MoveItem(dragFromContainer, dragFromIndex,
-		ContainerOf(view), IndexOf(view), dragAmount);
-	}
-
-	private void OnWindowOpenStateChanged(bool isOpen)
-	{
-		if (isOpen) return;
-
-		if (detailsView != null)
-			detailsView.Hide();
-
-		CancelDrag();
-		Deselect();
-		playerInventory.CloseStorage();
-	}
-
-	private void OnSlotClicked(SlotView view, PointerEventData.InputButton button)
-	{
-		if (button != PointerEventData.InputButton.Left) return;
-		Select(ContainerOf(view), IndexOf(view));
-	}
-
-	private void Select(InventoryContainer container, int index)
-	{
-		SlotView previous = ViewOf(selectedContainer, selectedIndex);
-		if (previous != null)
-			previous.SetHighlighted(false);
-
-		selectedContainer = container;
-		selectedIndex = index;
-
-		SlotView current = ViewOf(selectedContainer, selectedIndex);
-		if (current != null)
-			current.SetHighlighted(true);
-
-		ShowSelected();
-	}
-
-	private SlotView ViewOf(InventoryContainer container, int index)
-	{
-		List<SlotView> views = null;
-		if (container == bag) views = inventoryViews;
-		else if (container == hotbar) views = hotbarViews;
-		else if (storage != null && container == storage) views = storageViews;
-
-		if (views == null || index < 0 || index >= views.Count) return null;
-		return views[index];
-	}
-
-	private void Deselect()
-	{
-		Select(null, -1);
-	}
-
-	private void OnSortRequested(SortOrder order)
-	{
-		Deselect();
-		playerInventory.SortBag(order);
-	}
-
-	private void OnStorageSortRequested(SortOrder order)
-	{
-		Deselect();
-		playerInventory.SortStorage(order);
-	}
-	private void ShowSelected()
-	{
-		if (detailsView == null) return;
-
-		ItemSO item = null;
-		if (selectedContainer != null)
-			item = selectedContainer.GetItem(selectedIndex);
-
-		detailsView.Show(item);
+			detailsView.Show(item);
+		}
 	}
 }

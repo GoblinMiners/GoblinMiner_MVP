@@ -1,30 +1,31 @@
 using UnityEngine;
-using Inventory;
 
-
-public class ItemPickup : MonoBehaviour
+namespace Inventory
 {
-	private PlayerInventory playerInventory;
-
-	private void Awake()
+	public class ItemPickup : MonoBehaviour
 	{
-		playerInventory = GetComponentInParent<PlayerInventory>();
+		private PlayerInventory playerInventory;
 
-		if (playerInventory == null)
-			Debug.LogError("[ItemPickup] Needs a PlayerInventory on this object or a parent.", this);
-	}
+		private void Awake()
+		{
+			playerInventory = GetComponentInParent<PlayerInventory>();
 
-	private void OnTriggerEnter(Collider other)
-	{
-		if (playerInventory == null || playerInventory != PlayerInventory.Local) return;
+			if (playerInventory == null)
+				Debug.LogError("[ItemPickup] Needs a PlayerInventory on this object or a parent.", this);
+		}
 
-		WorldItem worldItem = other.GetComponent<WorldItem>();
-		if (worldItem == null) return;
+		private void OnTriggerEnter(Collider other)
+		{
+			if (playerInventory == null || playerInventory != PlayerInventory.Local) return;
 
-		int leftover = playerInventory.AddItem(worldItem.Item, worldItem.Count);
-		int taken = worldItem.Count - leftover;
+			WorldItem worldItem = other.GetComponent<WorldItem>();
+			if (worldItem == null) return;
 
-		if (taken > 0)
-			worldItem.Reduce(taken);
+			int leftover = playerInventory.AddItem(worldItem.Item, worldItem.Count);
+			int taken = worldItem.Count - leftover;
+
+			if (taken > 0)
+				worldItem.Reduce(taken);
+		}
 	}
 }
