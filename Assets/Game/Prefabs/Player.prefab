@@ -24,7 +24,6 @@ GameObject:
   - component: {fileID: 3852385527885148149}
   - component: {fileID: 3036407552820197148}
   - component: {fileID: 6650638257829533711}
-  - component: {fileID: 3165161413082592263}
   - component: {fileID: 1755112221218139934}
   - component: {fileID: 3342169287133017924}
   - component: {fileID: 5771138362555896253}
@@ -230,6 +229,37 @@ MonoBehaviour:
   coyoteSeconds: 0.15
   groundSnapDistance: 0.15
   maximumMotorDeltaTime: 0.05
+  groundAcceleration: 45
+  groundDeceleration: 35
+  airAcceleration: 16
+  airDeceleration: 3
+  turnAroundMultiplier: 1.6
+  fallGravityMultiplier: 1.4
+  apexGravityMultiplier: 0.55
+  apexSpeedBand: 1.5
+  jumpReleaseCut: 0.5
+  enableDive: 1
+  diveForwardSpeed: 8.5
+  diveUpSpeed: 3.5
+  diveSteering: 3
+  slideDeceleration: 11
+  slideMinSeconds: 0.25
+  slideMaxSeconds: 0.8
+  getUpSeconds: 0.18
+  enableLedgeGrab: 1
+  requireInputTowardLedge: 1
+  ledgeWallReach: 0.35
+  ledgeReachAboveHands: 0.55
+  ledgeReachBelowHands: 0.35
+  handsBelowHeadTop: 0.1
+  ledgeGrabMaxRisingSpeed: 1.5
+  climbSeconds: 0.38
+  shimmySpeed: 1.6
+  ledgeKickSpeed: 5.5
+  regrabCooldown: 0.35
+  ledgeLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
   inputActions: {fileID: -944628639613478452, guid: 1a4911f71258f9c49a819a3cd92322a8, type: 3}
   useJumpFallback: 1
   lookSensitivity: 0.2
@@ -237,6 +267,16 @@ MonoBehaviour:
   cameraPivot: {fileID: 8284284132156537274}
   localCamera: {fileID: 4321309597486537069}
   localCinemachine: {fileID: 2252357383268679068}
+  startInThirdPerson: 0
+  thirdPersonDistance: 4
+  thirdPersonShoulder: 0.45
+  thirdPersonHeight: 0.35
+  cameraCollisionRadius: 0.2
+  thirdPersonPitchLimits: {x: -35, y: 70}
+  thirdPersonTurnSpeed: 720
+  thirdPersonDiveTurnSpeed: 160
+  thirdPersonAirControl: 1.25
+  addCartoonBody: 1
   knockbackDeceleration: 10
   guardTerrainStreaming: 1
   rollbackSolidPenetration: 1
@@ -371,24 +411,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 985093e7b377adf4189760736278cfef, type: 3}
   m_Name: 
   m_EditorClassIdentifier: GoblinMiner.Inventory::Inventory.PlayerInventory
-  bagSlotCount: 16
-  hotbarSlotCount: 4
---- !u!114 &3165161413082592263
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 281334614785011032}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 56be6422d1dad8e4498ee7afe5cd07b2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Inventory.InventoryNetwork
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
   inventoryUIPrefab: {fileID: 1863083229922462563, guid: 7f60ab0838b81914d8c29c716671c66d, type: 3}
+  bagSlotCount: 16
+  hotbarSlotCount: 4
 --- !u!114 &1755112221218139934
 MonoBehaviour:
   m_ObjectHideFlags: 0
