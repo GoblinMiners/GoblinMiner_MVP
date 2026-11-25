@@ -1,22 +1,22 @@
+using Mirror;
 using UnityEngine;
 namespace Inventory
 {
 
 
-	public class StorageBox : MonoBehaviour, IInteractable
+	public class StorageBox : NetworkBehaviour, IInteractable
 	{
-		[Tooltip("Number of slots in this box. Customizable for different storage sizes")]
-		[SerializeField, Min(1)] private int slotCount = 24;
-
-		private InventoryContainer container;
-
-		private void Awake()
+		public ChestType Type { get; private set; }
+		public InventoryContainer Container { get; private set; }
+		public void Setup(ChestType type)
 		{
-			container = new InventoryContainer(slotCount);
+			Type = type;
+			Container = new InventoryContainer(type.slotCount, type.allowedTypes);
 		}
-
 		public void Interact(GameObject interactor)
 		{
+			if (Container == null) return;
+
 			PlayerInventory player = interactor.GetComponent<PlayerInventory>();
 
 			if (player == null)
@@ -25,7 +25,7 @@ namespace Inventory
 				return;
 			}
 
-			player.OpenStorage(container);
+			player.OpenStorage(Container);
 		}
 	}
 }
