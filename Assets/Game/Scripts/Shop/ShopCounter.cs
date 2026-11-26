@@ -8,10 +8,12 @@ using UnityEngine;
 /// Place your own prefab with this component in the scene to replace the default counter.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class ShopCounter : MonoBehaviour, IInteractable
+public sealed class ShopCounter : MonoBehaviour, IInteractable, IInteractPrompt
 {
     [Tooltip("How close, in metres, a player must stay to buy.")]
     [SerializeField, Min(1f)] private float reach = 3.5f;
+
+    public string PromptText => "Shop";
 
     private static readonly List<ShopCounter> all = new List<ShopCounter>();
     public static IReadOnlyList<ShopCounter> All => all;
@@ -62,7 +64,7 @@ public sealed class ShopCounter : MonoBehaviour, IInteractable
         sign.transform.localPosition = new Vector3(0f, 1.3f, 0f);
         sign.transform.localScale = new Vector3(0.5f, 1f, 1.25f);
         var text = sign.AddComponent<TextMesh>();
-        text.text = "SHOP\n[E]";
+        text.text = "SHOP";
         text.anchor = TextAnchor.MiddleCenter;
         text.alignment = TextAlignment.Center;
         text.characterSize = 0.12f;

@@ -9,12 +9,14 @@ namespace Inventory
 	/// inventory UI shows. Players open it by pressing E (PlayerInteractor asks the server,
 	/// the server calls Interact), and every move is a PlayerInventory Command.
 	/// </summary>
-	public class StorageBox : NetworkBehaviour, IInteractable
+	public class StorageBox : NetworkBehaviour, IInteractable, IInteractPrompt
 	{
 		[SyncVar] private int chestTypeId;
 		private readonly SyncList<SlotData> slots = new SyncList<SlotData>();
 
 		public ChestType Type { get; private set; }
+
+		public string PromptText => "Open chest";
 		public InventoryContainer Container { get; private set; }
 
 		/// <summary>Server, before spawning: sets the chest type and builds its slots.</summary>
