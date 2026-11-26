@@ -35,6 +35,13 @@ public class InventoryContainer
 	public ItemSO GetItem(int index) => IsValidIndex(index) ? slots[index].Item : null;
 	public int GetCount(int index) => IsValidIndex(index) ? slots[index].Count : 0;
 
+	public void SetSlot(int index, ItemSO item, int count)
+	{
+		if (!IsValidIndex(index)) return;
+
+		slots[index].SetItem(item, count);
+		SlotChanged?.Invoke(index);
+	}
 
 	public int AddItem(ItemSO itemToAdd, int amount)
 	{

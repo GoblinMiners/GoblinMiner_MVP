@@ -1,29 +1,31 @@
+using Mirror;
 using UnityEngine;
-using Inventory;
-
-
-public class StorageBox : MonoBehaviour, IInteractable
+namespace Inventory
 {
-	[Tooltip("Number of slots in this box. Customizable for different storage sizes")]
-	[SerializeField, Min(1)] private int slotCount = 24;
 
-	private InventoryContainer container;
 
-	private void Awake()
+	public class StorageBox : NetworkBehaviour, IInteractable
 	{
-		container = new InventoryContainer(slotCount);
-	}
-
-	public void Interact(GameObject interactor)
-	{
-		PlayerInventory player = interactor.GetComponent<PlayerInventory>();
-
-		if (player == null)
+		public ChestType Type { get; private set; }
+		public InventoryContainer Container { get; private set; }
+		public void Setup(ChestType type)
 		{
-			Debug.LogWarning($"[StorageBox] {interactor.name} has no PlayerInventory, so it can't open {name}.", this);
-			return;
+			Type = type;
+			Container = new InventoryContainer(type.slotCount, type.allowedTypes);
 		}
+		public void Interact(GameObject interactor)
+		{
+			if (Container == null) return;
 
-		player.OpenStorage(container);
+			PlayerInventory player = interactor.GetComponent<PlayerInventory>();
+
+			if (player == null)
+			{
+				Debug.LogWarning($"[StorageBox] {interactor.name} has no PlayerInventory, so it can't open {name}.", this);
+				return;
+			}
+
+			player.OpenStorage(Container);
+		}
 	}
 }

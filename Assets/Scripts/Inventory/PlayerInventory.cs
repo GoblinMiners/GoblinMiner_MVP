@@ -1,14 +1,22 @@
 using System;
+using Mirror;
 using UnityEngine;
 
 namespace Inventory
 {
-	public class PlayerInventory : MonoBehaviour
+	public struct SlotData
 	{
+		public int itemId;
+		public int count;
+	}
+	public class PlayerInventory : NetworkBehaviour
+	{
+		[Tooltip("The InventoryUI prefab. Only created for the Local player.")]
+		[SerializeField] private GameObject inventoryUIPrefab;
 		[Tooltip("Slots in the bag. Bag upgrades will raise this.")]
 		[SerializeField] private int bagSlotCount = 4;
 
-		[Tooltip("Slots in the hotbar. Fixed at 4 by design.")]
+		[Tooltip("Slots in the hotbar. Fixed at 4.")]
 		[SerializeField] private int hotbarSlotCount = 4;
 
 		public int BagSlotCount => bagSlotCount;
@@ -19,10 +27,18 @@ namespace Inventory
 		public event Action<InventoryContainer> StorageClosed;
 		public static PlayerInventory Local { get; private set; }
 		public static event Action<PlayerInventory> LocalChanged;
-
 		private InventoryContainer bag;
 		private InventoryContainer hotbar;
 		private InventoryContainer openStorage;
+		private GameObject inventoryUI;
+		private InventoryWindow window;
+		private readonly SyncList<SlotData> bagSlots = new SyncList<SlotData>();
+		private readonly SyncList<SlotData> hotbarSlots = new SyncList<SlotData>();
+
+		private void Awake()
+		{
+			syncMode = SyncMode.Owner;
+		}
 
 		public InventoryContainer Bag
 		{
@@ -115,8 +131,6 @@ namespace Inventory
 			closing.ItemsDropped -= RelayItemsDropped;
 		}
 
-
-
 		public void MoveItem(InventoryContainer from, int fromIndex,
 		InventoryContainer to, int toIndex, int amount)
 		{
@@ -162,6 +176,86 @@ namespace Inventory
 		private void OnDestroy()
 		{
 			ClearLocal();
+		}
+		public override void OnStartLocalPlayer()
+		{
+			base.OnStartLocalPlayer();
+			MakeLocal();
+
+			if (inventoryUIPrefab == null) return;
+
+			inventoryUI = Instantiate(inventoryUIPrefab);
+			window = inventoryUI.GetComponentInChildren<InventoryWindow>();
+
+			if (window != null)
+				window.OpenStateChanged += OnBagOpenChanged;
+		}
+
+		public override void OnStopLocalPlayer()
+		{
+			if (window != null)
+				window.OpenStateChanged -= OnBagOpenChanged;
+
+			OnBagOpenChanged(false);
+			ClearLocal();
+
+			if (inventoryUI != null)
+				Destroy(inventoryUI);
+
+			base.OnStopLocalPlayer();
+		}
+
+		private void OnBagOpenChanged(bool isOpen)
+		{
+			GobminePlayerEquipment.LocalMenuOpen = isOpen;
+		}
+
+		public override void OnStartServer()
+		{
+			base.OnStartServer();
+
+			CopyAll(Bag, bagSlots);
+			CopyAll(Hotbar, hotbarSlots);
+
+			Bag.SlotChanged += OnServerBagSlotChanged;
+			Hotbar.SlotChanged += OnServerHotbarSlotChanged;
+		}
+
+		public override void OnStopServer()
+		{
+			Bag.SlotChanged -= OnServerBagSlotChanged;
+			Hotbar.SlotChanged -= OnServerHotbarSlotChanged;
+
+			base.OnStopServer();
+		}
+
+		private void OnServerBagSlotChanged(int index)
+		{
+			bagSlots[index] = ToSlotData(Bag, index);
+
+			Debug.Log($"[PlayerInventory] Bag slot {index} is now item {bagSlots[index].itemId} x{bagSlots[index].count}");   // TEMP: delete after testing
+		}
+
+		private void OnServerHotbarSlotChanged(int index)
+		{
+			hotbarSlots[index] = ToSlotData(Hotbar, index);
+		}
+		private static void CopyAll(InventoryContainer container, SyncList<SlotData> list)
+		{
+			list.Clear();
+
+			for (int i = 0; i < container.SlotCount; i++)
+				list.Add(ToSlotData(container, i));
+		}
+		private static SlotData ToSlotData(InventoryContainer container, int index)
+		{
+			ItemSO item = container.GetItem(index);
+
+			return new SlotData
+			{
+				itemId = item != null ? item.itemId : 0,
+				count = container.GetCount(index)
+			};
 		}
 
 	}

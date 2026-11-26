@@ -292,7 +292,6 @@ GameObject:
   - component: {fileID: 1118519915143575848}
   - component: {fileID: 5298278107457808969}
   - component: {fileID: 2691867874144198251}
-  - component: {fileID: 2364111602372935954}
   m_Layer: 5
   m_Name: Inventory
   m_TagString: Untagged
@@ -362,20 +361,6 @@ MonoBehaviour:
   toggleKey: 9
   closeKey: 27
   hotbarContainer: {fileID: 6329887612664817419}
---- !u!114 &2364111602372935954
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1103892409518838429}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 985093e7b377adf4189760736278cfef, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: GoblinMiner.Inventory::Inventory.PlayerInventory
-  bagSlotCount: 4
-  hotbarSlotCount: 4
 --- !u!1 &1175491211060142110
 GameObject:
   m_ObjectHideFlags: 0
