@@ -28,6 +28,7 @@ GameObject:
   - component: {fileID: 3342169287133017924}
   - component: {fileID: 5771138362555896253}
   - component: {fileID: -3350868391503758606}
+  - component: {fileID: -581074774746946082}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -182,6 +183,7 @@ MonoBehaviour:
   - {fileID: 3342169287133017924}
   - {fileID: 5771138362555896253}
   - {fileID: -3350868391503758606}
+  - {fileID: -581074774746946082}
   playerInput: {fileID: 0}
 --- !u!114 &2792759908680420803
 MonoBehaviour:
@@ -471,6 +473,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9be352c67667cb24cbe9b8a7804bb761, type: 3}
   m_Name: 
   m_EditorClassIdentifier: GoblinMiner.Inventory::TESTConsumableUse
+--- !u!114 &-581074774746946082
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 281334614785011032}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c6e53da941ccbc46b298225a21928f2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerInteractor
+  viewPoint: {fileID: 5590983909215231903}
+  reach: 3
 --- !u!1 &1121659096224603369
 GameObject:
   m_ObjectHideFlags: 0
