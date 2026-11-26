@@ -81,7 +81,8 @@ public partial class World
             InitializeExpeditionFluids();
             if (loaded) { _fluids?.Import(saved.Fluids); expeditionUnlocks = saved.ExpeditionUnlocks; }
             else expeditionUnlocks = 0;
-            _materialWorldValid=true;
+			Inventory.ChestManager.OnWorldLoaded(loaded ? saved : null);
+			_materialWorldValid =true;
             _nextAutosave=Time.unscaledTime+Mathf.Max(1f,materialAutosaveSeconds);
             return true;
         }
