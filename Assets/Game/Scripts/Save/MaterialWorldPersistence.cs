@@ -9,7 +9,7 @@ using UnityEngine;
 public static class MaterialWorldPersistence
 {
     private const string Magic = "GMBMAT01";
-	public const int FormatVersion = 5;   // Version 5 adds chests to save data - Emmitt
+	public const int FormatVersion = 6;   // 5 adds chests (Emmitt); 6 allows dropped non-resource items (MaterialId 0).
 	public struct DensityPoint { public Vector3Int Position; public float Value; }
     public sealed class Snapshot
     {
@@ -66,7 +66,8 @@ public static class MaterialWorldPersistence
         {
             using(var w=new BinaryWriter(buffer,Encoding.UTF8,true))
             {
-				int format = s.Chests.Count > 0 ? 5 : s.OreChunks.Count > 0 ? 4 : s.Shapes.Count > 0 ? 3 : //v5 change - Emmitt
+				bool droppedItems = s.Resources.Exists(p => p.MaterialId == 0);
+				int format = droppedItems ? 6 : s.Chests.Count > 0 ? 5 : s.OreChunks.Count > 0 ? 4 : s.Shapes.Count > 0 ? 3 : //v5 change - Emmitt
 	                s.ExpeditionState || s.ExpeditionUnlocks != 0 || s.Fluids.Count > 0 ? 2 : 1;
                 w.Write(Encoding.ASCII.GetBytes(Magic)); w.Write(format); w.Write(TerrainMaterialCatalog.GeneratorVersion);
                 w.Write(s.Seed); WritePosition(w,s.ChunkSize); w.Write(s.VoxelSize); w.Write(s.RulesSignature ?? "");
@@ -154,7 +155,7 @@ public static class MaterialWorldPersistence
             {
                 var p=new ResourcePileStore.Pile {MaterialId=r.ReadInt32(),ItemId=r.ReadInt32(),Units=r.ReadDouble(),
                     Position=new Vector3(r.ReadSingle(),r.ReadSingle(),r.ReadSingle())};
-                if(p.MaterialId<=0 || p.ItemId<=0 || p.Units<=0 || double.IsNaN(p.Units) || double.IsInfinity(p.Units) ||
+                if(p.MaterialId<0 || (p.MaterialId==0 && format<6) || p.ItemId<=0 || p.Units<=0 || double.IsNaN(p.Units) || double.IsInfinity(p.Units) ||
                     !Finite(p.Position.x)||!Finite(p.Position.y)||!Finite(p.Position.z)) throw new InvalidDataException("Invalid resource record.");
                 s.Resources.Add(p);
             }

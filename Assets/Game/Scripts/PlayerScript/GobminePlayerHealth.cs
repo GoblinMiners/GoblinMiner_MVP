@@ -29,7 +29,7 @@ public sealed class GobminePlayerHealth : NetworkBehaviour
         World world=World.Instance;
         if(world!=null && world.ExpeditionEnabled)
         {
-            int flags=world.ExpeditionUnlocks;var s=world.ExpeditionProfile;
+            int flags=GobminePlayerEquipment.UnlocksOf(this);var s=world.ExpeditionProfile;
             if(type==GobmineDamageType.Fall && GobmineExpeditionRules.Has(flags,GobmineResearch.ImpactBoots))amount*=1f-Mathf.Clamp01(s.impactBootReduction);
             if(type==GobmineDamageType.Heat && GobmineExpeditionRules.Has(flags,GobmineResearch.HeatSuit))amount*=1f-Mathf.Clamp01(s.heatSuitReduction);
         }

@@ -1,3 +1,4 @@
+using Inventory;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -359,7 +360,9 @@ public partial class World
         // This yields proportional resources per hit, with no per-click integer rounding.
         double extracted=Math.Min(record.RemainingUnits,
             Math.Max(0.001d,amount/Math.Max(0.05f,ore.hardness)*ore.itemsPerCubicMetre*0.2d));
-        if (!miner.ServerAddUnits(ore.inventoryItem.mineralID,extracted))return false;
+        // Only take from the ore what the bag can hold; a full bag leaves the ore in place.
+        extracted-=miner.ServerAddUnits(ore.inventoryItem.mineralID,extracted);
+        if (extracted<=1e-9d) { NotifyEquipmentMessage(miner,"Bag full: make room to keep mining "+ore.displayName+".");return false; }
         NotifyMinedExposure(miner,record.MaterialId,extracted);
         if (record.Detached)
         { record.Position=target.transform.position;record.Rotation=target.transform.rotation; }

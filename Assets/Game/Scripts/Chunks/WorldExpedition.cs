@@ -1,3 +1,4 @@
+using Inventory;
 using System;
 using System.Collections.Generic;
 using Mirror;
@@ -8,6 +9,8 @@ public partial class World
 {
     [Header("Expedition - optional; use a NEW save slot")]
     public GobmineExpeditionSettings expeditionSettings;
+    [Tooltip("Where the default shop counter stands. Ignored if the scene has its own ShopCounter.")]
+    public Vector3 shopCounterPosition = new Vector3(0f, -3.5f, 8f);
     private GobmineExpeditionSettings _runtimeExpeditionSettings;
     public GobmineExpeditionSettings ExpeditionProfile => _runtimeExpeditionSettings != null ? _runtimeExpeditionSettings : expeditionSettings;
     [SyncVar] private int expeditionUnlocks;
@@ -60,11 +63,12 @@ public partial class World
             if (TerrainQuery.CellState(cell, _densityReader) == TerrainCellState.Air) continue;
             var d = materialCatalog.Get(GetSolidMaterialId(cell));
             if (d == null) continue;
-            if (GobmineExpeditionRules.ToolTier(expeditionUnlocks) < d.requiredToolTier)
+            int gear = GobminePlayerEquipment.UnlocksOf(miner);
+            if (GobmineExpeditionRules.ToolTier(gear) < d.requiredToolTier)
             { reason = d.displayName + " needs tool tier " + d.requiredToolTier + "."; return false; }
-            if (d.requireRadiationSuit && !GobmineExpeditionRules.Has(expeditionUnlocks, GobmineResearch.RadiationSuit))
+            if (d.requireRadiationSuit && !GobmineExpeditionRules.Has(gear, GobmineResearch.RadiationSuit))
             { reason = "Radiation protection required for " + d.displayName + "."; return false; }
-            if (d.requireShieldedContainer && !GobmineExpeditionRules.Has(expeditionUnlocks, GobmineResearch.ShieldedContainer))
+            if (d.requireShieldedContainer && !GobmineExpeditionRules.Has(gear, GobmineResearch.ShieldedContainer))
             { reason = "A shielded container is required for " + d.displayName + "."; return false; }
         }
         return true;
@@ -75,11 +79,12 @@ public partial class World
         if (!ExpeditionEnabled) return true;
         var d = materialCatalog.Get(materialId);
         if (d == null) { reason = "Unknown material."; return false; }
-        if (GobmineExpeditionRules.ToolTier(expeditionUnlocks) < d.requiredToolTier)
+        int gear = GobminePlayerEquipment.UnlocksOf(inventory);
+        if (GobmineExpeditionRules.ToolTier(gear) < d.requiredToolTier)
         { reason = "Upgrade your tool before recovering " + d.displayName + "."; return false; }
-        if (d.requireShieldedContainer && !GobmineExpeditionRules.Has(expeditionUnlocks, GobmineResearch.ShieldedContainer))
+        if (d.requireShieldedContainer && !GobmineExpeditionRules.Has(gear, GobmineResearch.ShieldedContainer))
         { reason = "Uncollected radioactive ore: shielded container required."; return false; }
-        if (d.requireRadiationSuit && !GobmineExpeditionRules.Has(expeditionUnlocks, GobmineResearch.RadiationSuit))
+        if (d.requireRadiationSuit && !GobmineExpeditionRules.Has(gear, GobmineResearch.RadiationSuit))
         { reason = "Radiation protection required for collection."; return false; }
         return inventory != null;
     }
@@ -97,28 +102,14 @@ public partial class World
         if (d != null && vitals != null && d.radiationRate > 0f)
             vitals.ServerAddExposure((float)Math.Min(50d, units * d.radiationRate * 0.15d));
     }
-    [Server]
-    public bool TryPurchaseResearch(PlayerInventory payer, int recipeIndex, out string message)
-    {
-        message = "Expedition is not ready.";
-        if (!isServer || !IsReady || !ExpeditionEnabled || payer == null || !payer.isServer) return false;
-        var health = payer.GetComponent<GobminePlayerHealth>();
-        if (health == null || health.IsDead) { message = "A living player is required."; return false; }
-        if (Vector3.Distance(payer.transform.position, ExpeditionProfile.workshopPosition) > ExpeditionProfile.workshopReach)
-        { message = "Return to the starting workshop to research equipment."; return false; }
-        if (recipeIndex < 0 || recipeIndex >= ExpeditionProfile.recipes.Length) { message = "Unknown recipe."; return false; }
-        var recipe = ExpeditionProfile.recipes[recipeIndex];
-        if (GobmineExpeditionRules.Has(expeditionUnlocks, recipe.unlock)) { message = "Already researched."; return false; }
-        if (!GobmineExpeditionRules.Has(expeditionUnlocks, recipe.prerequisite)) { message = "Research the prerequisite first."; return false; }
-        if (!payer.ServerTrySpend(recipe.costs)) { message = "Not enough minerals."; return false; }
-        expeditionUnlocks |= (int)recipe.unlock;
-        message = recipe.label + " unlocked for this expedition (all players).";
-        if (!SaveMaterialWorld()) message += " SAVE FAILED: inspect the server Console before stopping.";
-        return true;
-    }
     // Server-only helper for Editor testing, never a client Command.
     public void ServerGrantExpeditionResearchForTesting(int mask)
-    { if (isServer && ExpeditionEnabled) expeditionUnlocks |= mask & 511; }
+    {
+        if (!isServer || !ExpeditionEnabled) return;
+        expeditionUnlocks |= mask & 511;
+        // Upgrades are per player now: grant the connected players too.
+        foreach (var gear in FindObjectsByType<GobminePlayerEquipment>(FindObjectsInactive.Exclude)) gear.ServerGrantForTesting(mask);
+    }
 
     public void RefreshRadiationSurface(Vector3Int origin, TerrainMeshBuilder.Result mesh)
     {
@@ -161,8 +152,8 @@ public partial class World
                 if (d != null && d.radiationRate > 0f)
                     total += d.radiationRate * (float)Math.Min(4d, Math.Sqrt(pile.Units)) * Mathf.Clamp01(1f-Vector3.Distance(position,pile.Position)/radius);
             }
-        if (carrying != null && !GobmineExpeditionRules.Has(expeditionUnlocks, GobmineResearch.ShieldedContainer))
-            foreach (var item in carrying.Quantities)
+        if (carrying != null && !GobmineExpeditionRules.Has(GobminePlayerEquipment.UnlocksOf(carrying), GobmineResearch.ShieldedContainer))
+            foreach (var item in carrying.Totals)
             {
                 var d = materialCatalog.Get(MaterialForItem(item.Key));
                 if (d != null && d.radiationRate > 0f) total += d.radiationRate * (float)Math.Min(8d, Math.Sqrt(item.Value));

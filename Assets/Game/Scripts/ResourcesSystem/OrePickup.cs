@@ -66,7 +66,8 @@ public sealed class OrePickup : NetworkBehaviour
         var catalogue=World.Instance!=null?World.Instance.MaterialCatalog:Resources.Load<TerrainMaterialCatalog>("Gobmine/TerrainMaterialCatalog");
         if(catalogue==null)return;
         var renderer=GetComponentInChildren<Renderer>();
-        if(renderer!=null)renderer.sharedMaterial=catalogue.Debris(materialId);
+        var material=catalogue.Debris(materialId); // Null for dropped items that are not terrain: keep the prefab's look.
+        if(renderer!=null && material!=null)renderer.sharedMaterial=material;
     }
     // Collection is checked by the server at the configured World reach, not by
     // trigger overlap. A rock pile cannot prevent a nearby resource from trying.
