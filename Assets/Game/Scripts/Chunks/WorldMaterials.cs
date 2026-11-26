@@ -393,7 +393,8 @@ public partial class World
             if (_fluids != null) s.Fluids = _fluids.CopyOverrides();
             s.Shapes = SnapshotFallingShapesForSave();
             s.OreChunks = SnapshotOreChunksForSave();
-            MaterialWorldPersistence.Write(MaterialSavePath,s);return true;
+			s.Chests = Inventory.ChestManager.CollectForSave();   // v5 change - Emmitt
+			MaterialWorldPersistence.Write(MaterialSavePath,s);return true;
         }
         catch(Exception ex){Debug.LogError("[Gobmine Material Save] "+ex);return false;}
     }

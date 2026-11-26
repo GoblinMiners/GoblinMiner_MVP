@@ -9,8 +9,8 @@ using UnityEngine;
 public static class MaterialWorldPersistence
 {
     private const string Magic = "GMBMAT01";
-    public const int FormatVersion = 4;
-    public struct DensityPoint { public Vector3Int Position; public float Value; }
+	public const int FormatVersion = 5;   // Version 5 adds chests to save data - Emmitt
+	public struct DensityPoint { public Vector3Int Position; public float Value; }
     public sealed class Snapshot
     {
         public int Seed;
@@ -24,7 +24,8 @@ public static class MaterialWorldPersistence
         public List<GobmineFluidPoint> Fluids = new List<GobmineFluidPoint>();
         public List<TerrainShapeRecord> Shapes = new List<TerrainShapeRecord>();
         public List<MineableOreRecord> OreChunks = new List<MineableOreRecord>();
-    }
+		public List<Inventory.ChestRecord> Chests = new List<Inventory.ChestRecord>();   // v5 change - Emmitt
+	}
     public static string DefaultPath => Path.Combine(Application.persistentDataPath,"world_materials_v1.dat");
 
     public static bool TryLoad(string path,out Snapshot snapshot,out string error)
@@ -65,8 +66,8 @@ public static class MaterialWorldPersistence
         {
             using(var w=new BinaryWriter(buffer,Encoding.UTF8,true))
             {
-                int format = s.OreChunks.Count>0 ? FormatVersion : s.Shapes.Count>0 ? 3 :
-                    s.ExpeditionState || s.ExpeditionUnlocks != 0 || s.Fluids.Count > 0 ? 2 : 1;
+				int format = s.Chests.Count > 0 ? 5 : s.OreChunks.Count > 0 ? 4 : s.Shapes.Count > 0 ? 3 : //v5 change - Emmitt
+	                s.ExpeditionState || s.ExpeditionUnlocks != 0 || s.Fluids.Count > 0 ? 2 : 1;
                 w.Write(Encoding.ASCII.GetBytes(Magic)); w.Write(format); w.Write(TerrainMaterialCatalog.GeneratorVersion);
                 w.Write(s.Seed); WritePosition(w,s.ChunkSize); w.Write(s.VoxelSize); w.Write(s.RulesSignature ?? "");
                 w.Write(s.Density.Count);
@@ -105,7 +106,17 @@ public static class MaterialWorldPersistence
                         w.Write(ore.TotalUnits);w.Write(ore.RemainingUnits);w.Write(ore.Detached);
                     }
                 }
-            }
+				if (format >= 5)   // v5 change - Emmitt
+				{
+					w.Write(s.Chests.Count);
+					foreach (Inventory.ChestRecord chest in s.Chests)
+					{
+						w.Write(chest.TypeId); WriteVector(w, chest.Position); WriteQuaternion(w, chest.Rotation);
+						w.Write(chest.Slots.Count);
+						foreach (Inventory.SlotData slot in chest.Slots) { w.Write(slot.itemId); w.Write(slot.count); }
+					}
+				}
+			}
             byte[] payload=buffer.ToArray();
             using(var sha=SHA256.Create()) { byte[] hash=sha.ComputeHash(payload); buffer.Write(hash,0,hash.Length); }
             return buffer.ToArray();
@@ -221,7 +232,26 @@ public static class MaterialWorldPersistence
                     s.OreChunks.Add(ore);
                 }
             }
-            if(stream.Position!=stream.Length) throw new InvalidDataException("Unexpected save trailing data.");
+			if (format >= 5)   // v5 Change - Emmitt
+			{
+				count = r.ReadInt32(); CheckCount(count, 36, stream);
+				for (int i = 0; i < count; i++)
+				{
+					var chest = new Inventory.ChestRecord { TypeId = r.ReadInt32(), Position = ReadVector(r), Rotation = ReadQuaternion(r) };
+					if (chest.TypeId <= 0 || !Finite(chest.Position.x) || !Finite(chest.Position.y) || !Finite(chest.Position.z) ||
+						!Finite(chest.Rotation.x) || !Finite(chest.Rotation.y) || !Finite(chest.Rotation.z) || !Finite(chest.Rotation.w))
+						throw new InvalidDataException("Invalid chest record.");
+					int slots = r.ReadInt32(); CheckCount(slots, 8, stream);
+					for (int j = 0; j < slots; j++)
+					{
+						var slot = new Inventory.SlotData { itemId = r.ReadInt32(), count = r.ReadInt32() };
+						if (slot.itemId < 0 || slot.count < 0) throw new InvalidDataException("Invalid chest slot.");
+						chest.Slots.Add(slot);
+					}
+					s.Chests.Add(chest);
+				}
+			}
+			if (stream.Position!=stream.Length) throw new InvalidDataException("Unexpected save trailing data.");
             return s;
         }
     }
