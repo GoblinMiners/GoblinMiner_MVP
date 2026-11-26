@@ -1,3 +1,4 @@
+using Inventory;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -162,6 +163,8 @@ public partial class World : NetworkBehaviour
         seed = customSeed == 0 ? Random.Range(1000, 99999) : customSeed;
         ResetRuntimeState();
         if (!InitializeMaterialWorld()) return;
+        RemoveSceneWorldItems(); // Converted to network pickups in a new world.
+        ShopCounter.EnsureExists(shopCounterPosition);
         foreach (Transform player in _connectedPlayers)
             if (player != null) RegisterInventory(player.GetComponent<PlayerInventory>());
         InitializeCeilingScanner();
@@ -184,7 +187,7 @@ public partial class World : NetworkBehaviour
             uint id = resourcePickupPrefab.GetComponent<NetworkIdentity>().assetId;
             if (!NetworkClient.prefabs.ContainsKey(id)) NetworkClient.RegisterPrefab(resourcePickupPrefab);
         }
-        if (!isServer) RequestSnapshot();
+        if (!isServer) { RemoveSceneWorldItems(); ShopCounter.EnsureExists(shopCounterPosition); RequestSnapshot(); }
     }
 
     public override void OnStopServer()

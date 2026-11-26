@@ -1,3 +1,4 @@
+using Inventory;
 using Mirror;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -36,13 +37,13 @@ public sealed class GobminePlayerVitals:NetworkBehaviour
     private float MaxOxygen()
     {
         var w=World.Instance;if(w==null || !w.ExpeditionEnabled)return 30f;
-        return GobmineExpeditionRules.Has(w.ExpeditionUnlocks,GobmineResearch.AirTank)?w.ExpeditionProfile.tankOxygenSeconds:w.ExpeditionProfile.oxygenSeconds;
+        return GobmineExpeditionRules.Has(GobminePlayerEquipment.UnlocksOf(this),GobmineResearch.AirTank)?w.ExpeditionProfile.tankOxygenSeconds:w.ExpeditionProfile.oxygenSeconds;
     }
     [Server]
     public void ServerAddExposure(float amount)
     {
         World world=World.Instance;if(world==null || !world.ExpeditionEnabled || !GobmineExpeditionRules.Finite(amount) || amount<=0f)return;
-        if(GobmineExpeditionRules.Has(world.ExpeditionUnlocks,GobmineResearch.RadiationSuit))amount*=1f-world.ExpeditionProfile.radiationSuitReduction;
+        if(GobmineExpeditionRules.Has(GobminePlayerEquipment.UnlocksOf(this),GobmineResearch.RadiationSuit))amount*=1f-world.ExpeditionProfile.radiationSuitReduction;
         radiationDose=Mathf.Clamp(radiationDose+amount,0f,100f);
     }
     private void Update()

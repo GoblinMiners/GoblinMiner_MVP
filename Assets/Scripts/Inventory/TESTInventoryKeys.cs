@@ -3,6 +3,7 @@ namespace Inventory
 {
 
 
+	/// <summary>Test keys (editor and development builds only): P/O/I/U ask the server for test items, K sorts the bag.</summary>
 	public class TESTInventoryKeys : MonoBehaviour
 	{
 		[SerializeField] private ItemSO oreItem;
@@ -36,13 +37,13 @@ namespace Inventory
 		private void Update()
 		{
 			if (Input.GetKeyDown(KeyCode.P))
-				playerInventory.AddItem(oreItem, 3);
+				playerInventory.RequestTestItem(oreItem, 3);
 			else if (Input.GetKeyDown(KeyCode.O))
-				playerInventory.AddItem(consumableItem, 2);
+				playerInventory.RequestTestItem(consumableItem, 2);
 			else if (Input.GetKeyDown(KeyCode.I))
-				playerInventory.AddItem(supportItem, 1);
+				playerInventory.RequestTestItem(supportItem, 1);
 			else if (Input.GetKeyDown(KeyCode.U))
-				playerInventory.AddItem(toolItem, 1);
+				playerInventory.RequestTestItem(toolItem, 1);
 
 			else if (Input.GetKeyDown(KeyCode.K))
 			{

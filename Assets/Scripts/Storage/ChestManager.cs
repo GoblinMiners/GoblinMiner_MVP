@@ -31,7 +31,6 @@ namespace Inventory
 			foreach (ChestSpawnPoint point in points)
 				SpawnChest(point.Type, point.transform.position, point.transform.rotation);
 
-			Debug.Log($"[ChestManager] Spawned {points.Length} starter chest(s).");   // TEMP: delete after testing
 		}
 
 		public static StorageBox SpawnChest(ChestType type, Vector3 position, Quaternion rotation)
@@ -89,7 +88,6 @@ namespace Inventory
 				}
 			}
 
-			Debug.Log($"[ChestManager] Loaded {records.Count} chest(s) from the save.");   // TEST SCRIPT - REMEMBER TO DELETE!!
 		}
 		public static List<ChestRecord> CollectForSave()
 		{
@@ -134,12 +132,33 @@ namespace Inventory
 
 			return records;
 		}
-		private static ChestType FindType(int chestTypeId)
+		private static ChestType[] types;
+
+		private static ChestType[] AllTypes => types ??= Resources.LoadAll<ChestType>("Chests");
+
+		/// <summary>The chest type with this ID from Resources/Chests, or null.</summary>
+		public static ChestType FindType(int chestTypeId)
 		{
-			foreach (ChestType type in Resources.LoadAll<ChestType>("Chests"))
-				if (type.chestTypeId == chestTypeId) return type;
+			foreach (ChestType type in AllTypes)
+				if (type != null && type.chestTypeId == chestTypeId) return type;
 
 			return null;
+		}
+
+		/// <summary>
+		/// Client: lets Mirror spawn every chest prefab. Chests are spawned at runtime, so their
+		/// prefabs must be known before the first spawn message arrives (called from the
+		/// network manager's OnStartClient).
+		/// </summary>
+		public static void RegisterClientPrefabs()
+		{
+			foreach (ChestType type in AllTypes)
+			{
+				if (type == null || type.prefab == null) continue;
+				if (!type.prefab.TryGetComponent(out NetworkIdentity identity)) continue;
+				if (NetworkClient.prefabs.ContainsKey(identity.assetId)) continue;
+				NetworkClient.RegisterPrefab(type.prefab);
+			}
 		}
 	}
 }

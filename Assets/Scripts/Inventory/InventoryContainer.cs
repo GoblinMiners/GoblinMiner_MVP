@@ -39,7 +39,11 @@ public class InventoryContainer
 	{
 		if (!IsValidIndex(index)) return;
 
-		slots[index].SetItem(item, count);
+		InventorySlot slot = slots[index];
+		bool empty = item == null || count <= 0;
+		if (empty ? slot.IsEmpty : slot.Item == item && slot.Count == count) return; // No change.
+
+		slot.SetItem(item, count);
 		SlotChanged?.Invoke(index);
 	}
 
@@ -216,5 +220,49 @@ public class InventoryContainer
 		return result;
 	}
 
-	private bool IsValidIndex(int index) => index >= 0 && index < slots.Count;
+	public bool IsValidIndex(int index) => index >= 0 && index < slots.Count;
+
+	/// <summary>Total of this item across every slot.</summary>
+	public int CountOf(ItemSO item)
+	{
+		if (item == null) return 0;
+		int total = 0;
+		foreach (InventorySlot slot in slots)
+			if (slot.Item == item) total += slot.Count;
+		return total;
+	}
+
+	/// <summary>True if this item is already held here, or an empty slot would accept it.</summary>
+	public bool HasRoomOrStackFor(ItemSO item)
+	{
+		if (!Accepts(item)) return false;
+		foreach (InventorySlot slot in slots)
+			if (slot.IsEmpty || slot.Item == item) return true;
+		return false;
+	}
+
+	/// <summary>Removes up to amount of an item, last slots first. Returns the amount removed.</summary>
+	public int RemoveItem(ItemSO item, int amount)
+	{
+		if (item == null || amount <= 0) return 0;
+		int removed = 0;
+		for (int i = slots.Count - 1; i >= 0 && removed < amount; i--)
+		{
+			if (slots[i].Item != item) continue;
+			removed += slots[i].RemoveAmount(amount - removed);
+			SlotChanged?.Invoke(i);
+		}
+		return removed;
+	}
+
+	/// <summary>Empties every slot.</summary>
+	public void Clear()
+	{
+		for (int i = 0; i < slots.Count; i++)
+		{
+			if (slots[i].IsEmpty) continue;
+			slots[i].Clear();
+			SlotChanged?.Invoke(i);
+		}
+	}
 }
